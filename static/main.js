@@ -167,6 +167,11 @@ function maybeRevealSecret(r) {
     // não consome tentativa: apenas não enviar
     return;
   }
+  // 🔹 Adicione aqui o RIANN
+  if (val === 'RIANN') {
+    activateDivineMode();
+    return;
+  }
 }
 
 async function revealSecretTitle() {
@@ -176,11 +181,15 @@ async function revealSecretTitle() {
     if (!res.ok) return;
     const data = await res.json();
     if (data && data.correctWord) {
-      document.title = data.correctWord;
+      const titleEl = document.querySelector('h1');
+      if (titleEl) {
+        titleEl.textContent = data.correctWord.toUpperCase();
+        titleEl.classList.add('reveal-effect'); // 👈 adiciona a animação
+      }
       secretRevealed = true;
     }
   } catch (e) {
-    // silencioso
+    console.error(e);
   }
 }
 
@@ -278,19 +287,20 @@ function showWinEffects() {
   launchConfetti();
 }
 
-function launchConfetti() {
+function launchConfetti(color = null) {
   resizeCanvas();
   confettiCanvas.classList.remove('hidden');
   const particles = Array.from({ length: 220 }).map(() => ({
     x: Math.random() * confettiCanvas.width,
     y: -20 - Math.random() * 200,
     r: 3 + Math.random() * 4,
-    color: `hsl(${Math.random() * 360}, 90%, 60%)`,
+    color: color || `hsl(${Math.random() * 360}, 90%, 60%)`,
     vy: 2 + Math.random() * 3,
     vx: -1 + Math.random() * 2,
     rot: Math.random() * Math.PI,
     vr: -0.1 + Math.random() * 0.2,
   }));
+
   function frame() {
     ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
     particles.forEach(p => {
@@ -498,5 +508,85 @@ function updateKeyboardFromFeedback(feedback) {
 
 // Language via world icon with refresh (re-opens language overlay)
 langWorldBtn.addEventListener('click', () => { location.reload(); });
+
+function activateDivineMode() {
+  // Marca que o segredo foi ativado
+  secretRevealed = true;
+
+  // 1. Alterar título H1
+  const titleEl = document.querySelector('h1');
+  if (titleEl) {
+    titleEl.textContent = '☀️ Modo Divino ☀️';
+    titleEl.style.color = 'gold';
+    titleEl.style.textShadow = '0 0 10px rgb(3, 146, 212), 0 0 20px #fff8b0, 0 0 30px #ffe680';
+  }
+
+  // 2. Fundo da página com animação
+  document.body.style.background = 'linear-gradient(135deg, #fff7d1, #ffd700, #ffe680, #fffde7)';
+  document.body.style.transition = 'background 1s ease';
+
+  // 3. Alterar status
+  setStatus('🌟 Você ascendeu, RIANN!');
+
+  // 4. Bordas douradas no tabuleiro e teclado
+  board.style.border = '2px solid gold';
+  keyboardEl.style.border = '2px solid gold';
+  board.style.transition = 'border 1s ease';
+  keyboardEl.style.transition = 'border 1s ease';
+
+  // 5. Partículas douradas
+  launchDivineParticles();
+
+  // 6. Confete dourado especial
+  launchConfetti('#ffd700'); // aproveitando sua função de confete
+}
+
+function launchDivineParticles() {
+  const canvas = document.createElement('canvas');
+  canvas.style.position = 'fixed';
+  canvas.style.top = '0';
+  canvas.style.left = '0';
+  canvas.style.width = '100%';
+  canvas.style.height = '100%';
+  canvas.style.pointerEvents = 'none';
+  canvas.style.zIndex = '9999';
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const particles = Array.from({ length: 150 }).map(() => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    r: 2 + Math.random() * 3,
+    vx: -1 + Math.random() * 2,
+    vy: -2 + Math.random() * 0.5,
+    alpha: Math.random(),
+  }));
+
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.alpha -= 0.005;
+      if (p.alpha <= 0) {
+        p.x = Math.random() * canvas.width;
+        p.y = canvas.height + 10;
+        p.alpha = 1;
+      }
+      ctx.fillStyle = `rgba(255, 215, 0, ${p.alpha})`; // dourado
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    requestAnimationFrame(animate);
+  }
+  animate();
+
+  // Remove o canvas depois de 12s
+  setTimeout(() => canvas.remove(), 12000);
+}
+
 
 
