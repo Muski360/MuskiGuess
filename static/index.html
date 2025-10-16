@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MuskiGuess</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app" id="appRoot">
+        <h1>MuskiGuess</h1>
+        <div class="controls">
+            <button id="newGameBtn">Novo jogo</button>
+            <div id="status"></div>
+        </div>
+
+        <div id="board" class="board" aria-label="Tabuleiro do jogo"></div>
+        <p class="hint">Digite diretamente nos quadrados. Boa sorte!</p>
+
+        <div class="bottom-actions">
+          <button id="helpBtn" class="secondary"></button>
+        </div>
+    </div>
+
+    <div id="overlay" class="overlay hidden">
+      <div class="modal">
+        <h2>Fim de jogo</h2>
+        <p>A palavra correta era: <span id="correctWord"></span></p>
+        <div class="modal-actions">
+          <button id="playAgainBtn">Jogar novamente</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden">Parabéns! Você acertou!</div>
+    <canvas id="confettiCanvas" class="confetti hidden"></canvas>
+
+    <div id="winOverlay" class="overlay hidden">
+      <div class="modal">
+        <h2>Você acertou!</h2>
+        <p>Acertou em <span id="winAttempts"></span> tentativas.</p>
+        <div class="modal-actions">
+          <button id="winPlayAgainBtn">Jogar novamente</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="langOverlay" class="overlay">
+      <div class="modal">
+        <h2>Escolha o idioma</h2>
+        <div class="lang-grid">
+          <button id="langPt" class="lang-btn">
+            <img class="flag-img" src="static/images/brazil_flag.jpg" alt="Brasil" />
+            Português
+          </button>
+          <button id="langEn" class="lang-btn">
+            <img class="flag-img" src="static/images/usa_flag.svg" alt="USA" />
+            English
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme">🌙</button>
+
+    <div id="helpOverlay" class="overlay hidden">
+      <div class="modal">
+        <h2 id="helpTitle">Como jogar</h2>
+        <div class="help-grid">
+          <div class="cell example gray"><span>A</span></div>
+          <div class="desc" id="helpGray">A letra não existe na palavra.</div>
+          <div class="cell example yellow"><span>B</span></div>
+          <div class="desc" id="helpYellow">A letra existe mas em outra posição.</div>
+          <div class="cell example green"><span>C</span></div>
+          <div class="desc" id="helpGreen">A letra está na posição correta.</div>
+        </div>
+        <p id="helpTries" class="help-tries">Você tem 6 tentativas para adivinhar a palavra de 5 letras.</p>
+        <div class="modal-actions">
+          <button id="helpCloseBtn">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/static/main.js"></script>
+</body>
+</html>
+
+
