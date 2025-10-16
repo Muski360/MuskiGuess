@@ -30,6 +30,15 @@ const helpGray = document.getElementById('helpGray');
 const helpYellow = document.getElementById('helpYellow');
 const helpGreen = document.getElementById('helpGreen');
 const helpTries = document.getElementById('helpTries');
+const newGameBtnEl = document.getElementById('newGameBtn');
+const hintEl = document.querySelector('.hint');
+const gameOverTitleEl = document.querySelector('#overlay .modal h2');
+const gameOverTextEl = document.querySelector('#overlay .modal p');
+const playAgainBtnEl = document.getElementById('playAgainBtn');
+const toastEl = document.getElementById('toast');
+const winTitleEl = document.querySelector('#winOverlay .modal h2');
+const winTextPrefixEl = document.querySelector('#winOverlay .modal p');
+const winPlayAgainBtnEl = document.getElementById('winPlayAgainBtn');
 
 function resizeCanvas() {
   confettiCanvas.width = window.innerWidth;
@@ -72,7 +81,7 @@ async function newGame() {
   currentCol = 0;
   secretRevealed = false;
   renderBoard();
-  setStatus('Novo jogo iniciado!');
+  setStatus(currentLang === 'en' ? 'New game started!' : 'Novo jogo iniciado!');
   hideOverlay();
   toast.classList.add('hidden');
   confettiCanvas.classList.add('hidden');
@@ -149,7 +158,7 @@ async function submitCurrentRow() {
   if (!gameId) { setStatus('Clique em Novo jogo'); return; }
   const guess = readGuessFromRow(attempts);
   if (!/^[a-zA-Zçãõáéíóúàèìòùâêîôû]{5}$/.test(guess)) {
-    setStatus('Complete as 5 letras antes de enviar.');
+    setStatus(currentLang === 'en' ? 'Fill all 5 letters before sending.' : 'Complete as 5 letras antes de enviar.');
     return;
   }
   await sendGuess(guess);
@@ -176,7 +185,7 @@ async function sendGuess(guess) {
     showOverlay(data.correctWord || '');
   } else {
     enableNextRow();
-    setStatus(`Tentativa ${attempts + 1} de ${maxAttempts}`);
+    setStatus(currentLang === 'en' ? `Attempt ${attempts + 1} of ${maxAttempts}` : `Tentativa ${attempts + 1} de ${maxAttempts}`);
   }
 }
 
@@ -275,7 +284,7 @@ winPlayAgainBtn.addEventListener('click', () => { hideWinOverlay(); newGame(); }
 function chooseLang(lang) {
   currentLang = lang;
   langOverlay.classList.add('hidden');
-  updateHelpTexts();
+  applyLanguage();
   newGame();
 }
 langPtBtn.addEventListener('click', () => chooseLang('pt'));
@@ -337,7 +346,41 @@ function updateHelpTexts() {
     helpTries.textContent = 'Você tem 6 tentativas para adivinhar a palavra de 5 letras.';
   }
 }
+function applyLanguage() {
+  document.documentElement.lang = currentLang === 'en' ? 'en' : 'pt-BR';
+  updateHelpTexts();
+  if (currentLang === 'en') {
+    newGameBtnEl.textContent = 'New game';
+    hintEl.textContent = 'Type directly in the squares. Good luck!';
+    gameOverTitleEl.textContent = 'Game over';
+    gameOverTextEl.childNodes[0].textContent = 'The correct word was: ';
+    playAgainBtnEl.textContent = 'Play again';
+    toastEl.textContent = 'Congrats! You got it!';
+    winTitleEl.textContent = 'You won!';
+    // winTextPrefixEl has: 'Acertou em ' + <span id="winAttempts"></span> + ' tentativas.'
+    winTextPrefixEl.childNodes[0].textContent = 'Solved in ';
+    // after span stays; we replace trailing text node after span
+    if (winTextPrefixEl.childNodes.length > 2) {
+      winTextPrefixEl.childNodes[2].textContent = ' tries.';
+    }
+    winPlayAgainBtnEl.textContent = 'Play again';
+    board.setAttribute('aria-label', 'Game board');
+  } else {
+    newGameBtnEl.textContent = 'Novo jogo';
+    hintEl.textContent = 'Digite diretamente nos quadrados. Boa sorte!';
+    gameOverTitleEl.textContent = 'Fim de jogo';
+    gameOverTextEl.childNodes[0].textContent = 'A palavra correta era: ';
+    playAgainBtnEl.textContent = 'Jogar novamente';
+    toastEl.textContent = 'Parabéns! Você acertou!';
+    winTitleEl.textContent = 'Você acertou!';
+    if (winTextPrefixEl.childNodes.length > 0) {
+      winTextPrefixEl.childNodes[0].textContent = 'Acertou em ';
+    }
+    if (winTextPrefixEl.childNodes.length > 2) {
+      winTextPrefixEl.childNodes[2].textContent = ' tentativas.';
+    }
+    board.setAttribute('aria-label', 'Tabuleiro do jogo');
+  }
+}
 helpBtn.addEventListener('click', () => { updateHelpTexts(); helpOverlay.classList.remove('hidden'); appRoot.classList.add('blurred'); });
 helpCloseBtn.addEventListener('click', () => { helpOverlay.classList.add('hidden'); appRoot.classList.remove('blurred'); });
-
-
