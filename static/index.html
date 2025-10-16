@@ -26,6 +26,8 @@
         <div class="bottom-actions">
           <button id="helpBtn" class="secondary"></button>
         </div>
+
+        <div id="keyboard" class="keyboard"></div>
     </div>
 
     <div id="overlay" class="overlay hidden">
@@ -68,6 +70,9 @@
     </div>
 
     <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme">🌙</button>
+    <button id="langWorld" class="lang-world" aria-label="Trocar linguagem" title="Trocar linguagem">
+      <img class="world-icon" src="static/images/worldicon.svg" alt="Language" />
+    </button>
 
     <div id="helpOverlay" class="overlay hidden">
       <div class="modal">
@@ -81,6 +86,15 @@
           <div class="desc" id="helpGreen">A letra está na posição correta.</div>
         </div>
         <p id="helpTries" class="help-tries">Você tem 6 tentativas para adivinhar a palavra de 5 letras.</p>
+        <div class="secrets">
+          <button id="secretsBtn" class="secondary"></button>
+          <div id="secretsContent" class="hidden">
+            <h3 id="secretMuskiTitle">MUSKI</h3>
+            <p id="secretMuskiText">Ativa um tema roxo especial. Não consome tentativa.</p>
+            <h3 id="secretBillyTitle">BILLY</h3>
+            <p id="secretBillyText">Revela a palavra correta do jogo atual.</p>
+          </div>
+        </div>
         <div class="modal-actions">
           <button id="helpCloseBtn">OK</button>
         </div>
@@ -90,3 +104,5 @@
     <script src="/static/main.js"></script>
 </body>
 </html>
+
+

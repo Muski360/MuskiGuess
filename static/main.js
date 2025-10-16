@@ -4,6 +4,8 @@ let maxAttempts = 6;
 let currentCol = 0;
 let secretRevealed = false;
 let currentLang = 'pt';
+let isRevealing = false;
+let muskiActivated = false;
 
 const appRoot = document.getElementById('appRoot');
 const board = document.getElementById('board');
@@ -30,6 +32,12 @@ const helpGray = document.getElementById('helpGray');
 const helpYellow = document.getElementById('helpYellow');
 const helpGreen = document.getElementById('helpGreen');
 const helpTries = document.getElementById('helpTries');
+const secretsBtn = document.getElementById('secretsBtn');
+const secretsContent = document.getElementById('secretsContent');
+const secretMuskiTitle = document.getElementById('secretMuskiTitle');
+const secretMuskiText = document.getElementById('secretMuskiText');
+const secretBillyTitle = document.getElementById('secretBillyTitle');
+const secretBillyText = document.getElementById('secretBillyText');
 const newGameBtnEl = document.getElementById('newGameBtn');
 const hintEl = document.querySelector('.hint');
 const gameOverTitleEl = document.querySelector('#overlay .modal h2');
@@ -39,6 +47,8 @@ const toastEl = document.getElementById('toast');
 const winTitleEl = document.querySelector('#winOverlay .modal h2');
 const winTextPrefixEl = document.querySelector('#winOverlay .modal p');
 const winPlayAgainBtnEl = document.getElementById('winPlayAgainBtn');
+const keyboardEl = document.getElementById('keyboard');
+const langWorldBtn = document.getElementById('langWorld');
 
 function resizeCanvas() {
   confettiCanvas.width = window.innerWidth;
@@ -67,6 +77,7 @@ function renderBoard() {
     board.appendChild(row);
   }
   focusCell(attempts, 0);
+  renderKeyboard();
 }
 
 function setStatus(text) { statusEl.textContent = text; }
@@ -80,6 +91,7 @@ async function newGame() {
   maxAttempts = data.maxAttempts;
   currentCol = 0;
   secretRevealed = false;
+  muskiActivated = false;
   renderBoard();
   setStatus(currentLang === 'en' ? 'New game started!' : 'Novo jogo iniciado!');
   hideOverlay();
@@ -102,6 +114,7 @@ function onInput(r, c, input) {
 }
 
 function onKeyDown(e, r, c, input) {
+  if (isRevealing) { e.preventDefault(); return; }
   if (e.key === 'Backspace') {
     if (input.value) {
       input.value = '';
@@ -136,6 +149,13 @@ function maybeRevealSecret(r) {
   const val = readGuessFromRow(r).toUpperCase();
   if (val === 'BILLY') {
     revealSecretTitle();
+    return;
+  }
+  if (val === 'MUSKI') {
+    document.body.classList.add('muski-theme');
+    muskiActivated = true;
+    // não consome tentativa: apenas não enviar
+    return;
   }
 }
 
@@ -155,8 +175,10 @@ async function revealSecretTitle() {
 }
 
 async function submitCurrentRow() {
+  if (isRevealing) return;
   if (!gameId) { setStatus('Clique em Novo jogo'); return; }
   const guess = readGuessFromRow(attempts);
+  if (guess.toUpperCase() === 'MUSKI') { return; }
   if (!/^[a-zA-Zçãõáéíóúàèìòùâêîôû]{5}$/.test(guess)) {
     setStatus(currentLang === 'en' ? 'Fill all 5 letters before sending.' : 'Complete as 5 letras antes de enviar.');
     return;
@@ -177,11 +199,11 @@ async function sendGuess(guess) {
 
   attempts = data.attempts;
   if (data.won) {
-    setStatus('Parabéns!');
+    setStatus(currentLang === 'en' ? 'Congratulations!' : 'Parabéns!');
     showWinEffects();
     showWinOverlay(data.attempts);
   } else if (data.gameOver) {
-    setStatus('Fim de jogo!');
+    setStatus(currentLang === 'en' ? 'Game over!' : 'Fim de jogo!');
     showOverlay(data.correctWord || '');
   } else {
     enableNextRow();
@@ -190,6 +212,7 @@ async function sendGuess(guess) {
 }
 
 async function revealRowWithAnimation(row, feedback) {
+  isRevealing = true;
   for (let idx = 0; idx < 5; idx++) {
     const cell = row.children[idx];
     const input = cell.querySelector('input');
@@ -205,6 +228,8 @@ async function revealRowWithAnimation(row, feedback) {
     await new Promise(r => setTimeout(r, 150));
     cell.classList.remove('revealing');
   }
+  updateKeyboardFromFeedback(feedback);
+  isRevealing = false;
 }
 
 function enableNextRow() {
@@ -307,6 +332,9 @@ function applyTheme() {
     document.documentElement.style.setProperty('--button-border', '#1f2937');
     document.documentElement.style.setProperty('--toast-bg', '#16a34a');
     document.documentElement.style.setProperty('--toast-text', '#052e16');
+    // world icon for dark theme
+    const worldIcon = document.querySelector('.world-icon');
+    if (worldIcon) worldIcon.src = 'static/images/worldicon2.svg';
     document.body.style.background = 'radial-gradient(1200px 600px at 10% 10%, #0b1225 0%, var(--bg) 60%)';
     themeToggle.textContent = '🌙';
   } else {
@@ -321,6 +349,9 @@ function applyTheme() {
     document.documentElement.style.setProperty('--button-border', '#e5e7eb');
     document.documentElement.style.setProperty('--toast-bg', '#22c55e');
     document.documentElement.style.setProperty('--toast-text', '#052e16');
+    // world icon for light theme
+    const worldIcon = document.querySelector('.world-icon');
+    if (worldIcon) worldIcon.src = 'static/images/worldicon.svg';
     document.body.style.background = 'linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)';
     themeToggle.textContent = '☀️';
   }
@@ -332,6 +363,11 @@ themeToggle.addEventListener('click', () => { darkMode = !darkMode; applyTheme()
 function updateHelpTexts() {
   if (currentLang === 'en') {
     helpBtn.textContent = 'How to play?';
+    secretsBtn.textContent = 'Secrets';
+    secretMuskiTitle.textContent = 'MUSKI';
+    secretMuskiText.textContent = 'Activates a special purple theme. Does not consume a try.';
+    secretBillyTitle.textContent = 'BILLY';
+    secretBillyText.textContent = 'Reveals the current game word.';
     helpTitle.textContent = 'How to play';
     helpGray.textContent = 'The letter is not in the word.';
     helpYellow.textContent = 'The letter is in the word but wrong position.';
@@ -339,6 +375,11 @@ function updateHelpTexts() {
     helpTries.textContent = 'You have 6 tries to guess the 5-letter word.';
   } else {
     helpBtn.textContent = 'Como jogar?';
+    secretsBtn.textContent = 'Segredos';
+    secretMuskiTitle.textContent = 'MUSKI';
+    secretMuskiText.textContent = 'Ativa um tema roxo especial. Não consome tentativa.';
+    secretBillyTitle.textContent = 'BILLY';
+    secretBillyText.textContent = 'Revela a palavra correta do jogo atual.';
     helpTitle.textContent = 'Como jogar';
     helpGray.textContent = 'A letra não existe na palavra.';
     helpYellow.textContent = 'A letra existe na palavra em outra posição.';
@@ -384,3 +425,68 @@ function applyLanguage() {
 }
 helpBtn.addEventListener('click', () => { updateHelpTexts(); helpOverlay.classList.remove('hidden'); appRoot.classList.add('blurred'); });
 helpCloseBtn.addEventListener('click', () => { helpOverlay.classList.add('hidden'); appRoot.classList.remove('blurred'); });
+secretsBtn.addEventListener('click', () => { secretsContent.classList.toggle('hidden'); });
+
+// On-screen keyboard
+const rows = [
+  'QWERTYUIOP'.split(''),
+  'ASDFGHJKL'.split(''),
+  ['ENTER', ...'ZXCVBNM'.split(''), '⌫']
+];
+let keyStatuses = {}; // letter -> gray|yellow|green
+
+function renderKeyboard() {
+  keyboardEl.innerHTML = '';
+  rows.forEach((letters, rIdx) => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'key-row';
+    letters.forEach(l => {
+      const key = document.createElement('button');
+      key.className = 'key';
+      key.textContent = l;
+      if (l === 'ENTER' || l === '⌫') key.classList.add('wide');
+      const status = keyStatuses[l];
+      if (status) key.classList.add(status);
+      key.addEventListener('click', () => onKeyPress(l));
+      rowEl.appendChild(key);
+    });
+    keyboardEl.appendChild(rowEl);
+  });
+}
+
+function onKeyPress(k) {
+  if (isRevealing) return;
+  if (k === 'ENTER') { submitCurrentRow(); return; }
+  if (k === '⌫') {
+    const inputs = getRowInputs(attempts);
+    const current = inputs[currentCol];
+    if (current.value) { current.value = ''; return; }
+    if (currentCol > 0) focusCell(attempts, currentCol - 1);
+    return;
+  }
+  const inputs = getRowInputs(attempts);
+  const current = inputs[currentCol];
+  if (!current) return;
+  if (!current.value) {
+    current.value = k.toUpperCase();
+    if (currentCol < 4) focusCell(attempts, currentCol + 1);
+  }
+}
+
+function updateKeyboardFromFeedback(feedback) {
+  // precedence: green > yellow > gray
+  feedback.forEach(item => {
+    const l = item.letter;
+    const s = item.status;
+    const prev = keyStatuses[l];
+    if (prev === 'green') return;
+    if (s === 'green' || (s === 'yellow' && prev !== 'green')) keyStatuses[l] = s;
+    if (!prev) keyStatuses[l] = s;
+  });
+  renderKeyboard();
+}
+
+// Language via world icon with refresh (re-opens language overlay)
+langWorldBtn.addEventListener('click', () => { location.reload(); });
+
+

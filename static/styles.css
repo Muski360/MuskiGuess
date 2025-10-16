@@ -36,6 +36,8 @@ h1 { margin: 8px 0 16px; letter-spacing: 1px; color: var(--text); }
   gap: 12px;
   margin-bottom: 12px;
 }
+.lang-switch { margin-left: auto; display: inline-flex; gap: 8px; align-items: center; color: var(--muted); }
+.lang-switch input { transform: scale(1.2); }
 button {
   background: var(--button-bg);
   color: var(--text);
@@ -95,6 +97,31 @@ button:hover { filter: brightness(1.1); }
 .hint { color: var(--muted); font-size: 14px; }
 .bottom-actions { margin-top: 12px; display: flex; justify-content: center; }
 .secondary { background: var(--surface); border-color: var(--border); color: var(--muted); }
+.keyboard { margin-top: 16px; display: grid; gap: 8px; }
+.key-row { display: flex; justify-content: center; gap: 6px; }
+.key { min-width: 36px; height: 46px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); display: grid; place-items: center; padding: 0 8px; }
+.key.gray { background: var(--gray); color: #d1d5db; }
+.key.yellow { background: var(--yellow); color: #1f2937; }
+.key.green { background: var(--green); color: #052e16; }
+.key.wide { min-width: 70px; }
+.key:active { transform: translateY(1px); }
+
+/* Secret purple theme */
+.muski-theme {
+  --bg: #130820;
+  --panel: #1a0b2e;
+  --surface: #190a2b;
+  --border: #2a1743;
+  --text: #e9d5ff;
+  --muted: #c4b5fd;
+  --green: #a78bfa;
+  --yellow: #f0abfc;
+  --gray: #3b1d5a;
+  --button-bg: linear-gradient(180deg,#2a1743 0%, #1a0b2e 100%);
+  --button-border: #2a1743;
+  --toast-bg: #a78bfa;
+  --toast-text: #2e1065;
+}
 
 /* Overlay & Modal */
 .overlay {
@@ -173,6 +200,8 @@ button:hover { filter: brightness(1.1); }
   border-radius: 999px;
   width: 44px; height: 44px;
 }
+.lang-world { position: fixed; right: 16px; bottom: 70px; z-index: 70; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; width: 44px; height: 44px; display: grid; place-items: center; }
+.world-icon { width: 16px; height: 18px; display: block; margin: 0; justify-content: center; align-items: center;}
 
 /* Help modal */
 .help-grid {
@@ -186,3 +215,9 @@ button:hover { filter: brightness(1.1); }
 .cell.example span { font-size: 20px; }
 .desc { color: var(--muted); font-size: 14px; }
 .help-tries { margin-top: 10px; color: var(--muted); }
+
+.secrets { margin-top: 12px; text-align: left; }
+.secrets h3 { margin: 8px 0 6px; font-size: 16px; }
+.secrets p { margin: 4px 0; color: var(--muted); }
+
+
