@@ -1,14 +1,13 @@
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request
+
 from termo import Termo
 from words import get_random_word
 import os
 
 app = Flask(__name__, static_folder="static", template_folder="static")
 
-# Armazena jogos em memória por sessão simples (id de jogo)
 games = {}
 next_game_id = 1
-
 
 @app.post("/api/new-game")
 def new_game():
@@ -21,7 +20,6 @@ def new_game():
     next_game_id += 1
     games[game_id] = game
     return jsonify({"gameId": game_id, "maxAttempts": game.max_attempts, "lang": lang})
-
 
 @app.post("/api/guess")
 def make_guess():
@@ -55,19 +53,11 @@ def peek_correct_word():
     game = games[game_id]
     return jsonify({"correctWord": game.word.upper()})
 
-
-@app.get("/")
+# Rota para o front-end
+@app.route("/")
 def index():
-    return send_from_directory(app.static_folder, "index.html")
-
-
-@app.get("/static/<path:path>")
-def static_files(path: str):
-    return send_from_directory(app.static_folder, path)
-
+    return app.send_static_file("index.html")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
-
-
