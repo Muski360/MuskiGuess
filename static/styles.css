@@ -220,4 +220,23 @@ button:hover { filter: brightness(1.1); }
 .secrets h3 { margin: 8px 0 6px; font-size: 16px; }
 .secrets p { margin: 4px 0; color: var(--muted); }
 
+@keyframes neonGlow {
+  0%, 100% {
+    text-shadow: 0 0 5px #00ffaa, 0 0 10px #00ffaa, 0 0 20px #00ffaa;
+    color: #baffd6;
+  }
+  50% {
+    text-shadow: 0 0 20px #00ffaa, 0 0 40px #00ffaa, 0 0 80px #00ffaa;
+    color: #00ffaa;
+  }
+}
+
+.reveal-effect {
+  animation: neonGlow 1s ease-in-out 4; /* 4 piscadas */
+  transition: all 0.3s ease;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+
 
