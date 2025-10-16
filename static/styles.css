@@ -94,7 +94,7 @@ button:hover { filter: brightness(1.1); }
 
 .hint { color: var(--muted); font-size: 14px; }
 .bottom-actions { margin-top: 12px; display: flex; justify-content: center; }
-.secondary { background: #0b1220; border-color: #1f2937; color: var(--muted); }
+.secondary { background: var(--surface); border-color: var(--border); color: var(--muted); }
 
 /* Overlay & Modal */
 .overlay {
@@ -107,7 +107,7 @@ button:hover { filter: brightness(1.1); }
   backdrop-filter: blur(2px);
 }
 .modal {
-  background: #0b1220;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 20px 16px;
@@ -186,5 +186,3 @@ button:hover { filter: brightness(1.1); }
 .cell.example span { font-size: 20px; }
 .desc { color: var(--muted); font-size: 14px; }
 .help-tries { margin-top: 10px; color: var(--muted); }
-
-
