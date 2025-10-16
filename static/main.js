@@ -7,6 +7,7 @@ let currentLang = 'pt';
 let isRevealing = false;
 let muskiActivated = false;
 
+
 const appRoot = document.getElementById('appRoot');
 const board = document.getElementById('board');
 const statusEl = document.getElementById('status');
@@ -92,6 +93,15 @@ async function newGame() {
   currentCol = 0;
   secretRevealed = false;
   muskiActivated = false;
+  const keyboardEl = document.querySelector('#keyboard');
+  keyboardEl.style.transition = 'opacity 0.3s ease';
+  keyboardEl.style.opacity = '0';
+  
+  setTimeout(() => {
+  keyStatuses = {};
+  renderKeyboard();
+  keyboardEl.style.opacity = '1';
+}, 300);
   renderBoard();
   setStatus(currentLang === 'en' ? 'New game started!' : 'Novo jogo iniciado!');
   hideOverlay();
