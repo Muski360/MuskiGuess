@@ -232,7 +232,14 @@ button:hover { filter: brightness(1.1); }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 999px;
-  width: 44px; height: 44px;
+  width: 44px; 
+  height: 44px;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  line-height: 1 !important;
+  font-size: 18px !important;
   transition: all 0.3s ease;
 }
 
@@ -366,10 +373,15 @@ button {
   border-radius: 999px; 
   width: 44px; 
   height: 44px; 
-  display: grid; 
-  place-items: center; 
+  display: flex !important; 
+  align-items: center !important; 
+  justify-content: center !important;
 }
-.world-icon { width: 16px; height: 18px; display: block; margin: 0; justify-content: center; align-items: center;}
+.world-icon { 
+  width: 20px; 
+  height: 20px; 
+  display: block; 
+}
 
 .info-btn {
   position: fixed;
@@ -381,9 +393,12 @@ button {
   border-radius: 999px;
   width: 44px;
   height: 44px;
-  display: grid;
-  place-items: center;
-  font-size: 18px;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  line-height: 1 !important;
+  font-size: 18px !important;
   font-weight: bold;
   color: var(--text);
   cursor: pointer;
@@ -516,6 +531,285 @@ button {
   transition: all 0.3s ease;
   letter-spacing: 3px;
   text-transform: uppercase;
+}
+
+/* ===== RESPONSIVIDADE MOBILE ===== */
+@media (max-width: 768px) {
+  /* Ajustes gerais */
+  .app {
+    padding: 16px 12px 40px;
+    max-width: 100%;
+  }
+  
+  h1 {
+    font-size: 24px;
+    margin: 4px 0 12px;
+  }
+  
+  /* Controles */
+  .controls {
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+  }
+  
+  .controls button {
+    width: 100%;
+    max-width: 200px;
+    padding: 12px 16px;
+    font-size: 16px;
+  }
+  
+  /* Tabuleiro */
+  .board {
+    gap: 4px;
+    margin: 16px auto;
+  }
+  
+  .cell {
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+  }
+  
+  .cell input {
+    font-size: 20px;
+  }
+  
+  /* Dica */
+  .hint {
+    font-size: 14px;
+    margin: 12px 0;
+    text-align: center;
+  }
+  
+  /* Teclado */
+  .keyboard {
+    gap: 4px;
+    margin-top: 16px;
+  }
+  
+  .key-row {
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+  
+  .key {
+    min-width: 28px;
+    height: 40px;
+    font-size: 14px;
+    border-radius: 4px;
+  }
+  
+  .key.wide {
+    min-width: 60px;
+  }
+  
+  /* Botões flutuantes */
+  .theme-toggle {
+    width: 40px;
+    height: 40px;
+    right: 12px;
+    bottom: 12px;
+    font-size: 18px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    line-height: 1 !important;
+  }
+  
+  .theme-container {
+    right: 12px;
+    bottom: 60px;
+  }
+  
+  .theme-brush-btn {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .theme-brush-btn img {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .theme-sidebar {
+    min-width: 180px;
+    padding: 8px;
+  }
+  
+  .theme-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  
+  .theme-btn {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .theme-dot {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .lang-world {
+    width: 40px;
+    height: 40px;
+    right: 12px;
+    bottom: 108px;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  
+  .lang-world img {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .info-btn {
+    width: 40px;
+    height: 40px;
+    right: 12px;
+    bottom: 156px;
+    font-size: 18px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    line-height: 1 !important;
+  }
+  
+  /* Modais */
+  .modal {
+    margin: 20px;
+    padding: 20px;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+  }
+  
+  .modal h2 {
+    font-size: 20px;
+    margin-bottom: 16px;
+  }
+  
+  .modal p {
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  
+  .help-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    text-align: center;
+  }
+  
+  .help-grid .cell {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto;
+  }
+  
+  .lang-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .lang-btn {
+    padding: 16px;
+    font-size: 16px;
+  }
+  
+  .flag-img {
+    width: 24px;
+    height: 18px;
+  }
+  
+  /* Botões de ação */
+  .modal-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .modal-actions button {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 16px;
+  }
+  
+  /* Segredos */
+  .secret-item {
+    padding: 10px;
+    margin-bottom: 12px;
+  }
+  
+  .secret-item h4 {
+    font-size: 14px;
+    margin: 12px 0 4px;
+  }
+  
+  .secret-item p {
+    font-size: 13px;
+  }
+  
+  /* Toast */
+  .toast {
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+}
+
+/* Telas muito pequenas */
+@media (max-width: 480px) {
+  .app {
+    padding: 12px 8px 32px;
+  }
+  
+  h1 {
+    font-size: 20px;
+  }
+  
+  .cell {
+    width: 45px;
+    height: 45px;
+    font-size: 18px;
+  }
+  
+  .cell input {
+    font-size: 18px;
+  }
+  
+  .key {
+    min-width: 24px;
+    height: 36px;
+    font-size: 12px;
+  }
+  
+  .key.wide {
+    min-width: 50px;
+  }
+  
+  .theme-btn {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .theme-dot {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .modal {
+    margin: 16px;
+    padding: 16px;
+    max-width: calc(100vw - 32px);
+  }
 }
 
 
