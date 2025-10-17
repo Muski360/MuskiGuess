@@ -9,6 +9,34 @@ app = Flask(__name__, static_folder="static", template_folder="static")
 games = {}
 next_game_id = 1
 
+# Carregar palavras portuguesas
+portuguese_words = set()
+try:
+    with open('palavras_5letras.txt', 'r', encoding='utf-8') as f:
+        for line in f:
+            word = line.strip().lower()
+            if len(word) == 5:
+                portuguese_words.add(word)
+    print(f"Carregadas {len(portuguese_words)} palavras portuguesas")
+except FileNotFoundError:
+    print("Arquivo palavras_5letras.txt não encontrado")
+except Exception as e:
+    print(f"Erro ao carregar palavras portuguesas: {e}")
+
+# Carregar palavras inglesas
+english_words = set()
+try:
+    with open('words_5letters.txt', 'r', encoding='utf-8') as f:
+        for line in f:
+            word = line.strip().lower()
+            if len(word) == 5:
+                english_words.add(word)
+    print(f"Carregadas {len(english_words)} palavras inglesas")
+except FileNotFoundError:
+    print("Arquivo words_5letters.txt não encontrado")
+except Exception as e:
+    print(f"Erro ao carregar palavras inglesas: {e}")
+
 @app.post("/api/new-game")
 def new_game():
     global next_game_id
@@ -52,6 +80,24 @@ def peek_correct_word():
         return jsonify({"error": "Jogo não encontrado"}), 404
     game = games[game_id]
     return jsonify({"correctWord": game.word.upper()})
+
+@app.get("/api/check-word")
+def check_word():
+    word = request.args.get("word", "").strip().lower()
+    lang = request.args.get("lang", "pt").lower()
+    
+    if len(word) != 5:
+        return jsonify({"exists": False, "error": "Palavra deve ter 5 letras"})
+    
+    if lang == "pt":
+        exists = word in portuguese_words
+        return jsonify({"exists": exists})
+    elif lang == "en":
+        exists = word in english_words
+        return jsonify({"exists": exists})
+    else:
+        # Para outros idiomas, assumir que todas as palavras de 5 letras são válidas
+        return jsonify({"exists": True})
 
 # Rota para o front-end
 @app.route("/")

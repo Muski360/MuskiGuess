@@ -14,9 +14,15 @@
   --button-border: #1f2937;
   --toast-bg: #16a34a;
   --toast-text: #052e16;
+  --accent-color: #3b82f6; /* Cor de destaque padrão (azul) */
+  --accent-bg: rgba(59, 130, 246, 0.1); /* Fundo de destaque padrão */
 }
 
-* { box-sizing: border-box; }
+* { 
+  box-sizing: border-box;
+  transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+}
+
 html, body { height: 100%; }
 body {
   margin: 0;
@@ -78,18 +84,25 @@ button:hover { filter: brightness(1.1); }
   letter-spacing: 1px;
   background: var(--surface);
 }
-.cell input {
-  width: 100%;
-  height: 100%;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: inherit;
-  text-align: center;
-  font: inherit;
-  text-transform: uppercase;
-}
-.cell.active { box-shadow: 0 0 0 2px #334155 inset; }
+ .cell input {
+   width: 100%;
+   height: 100%;
+   border: none;
+   outline: none;
+   background: transparent;
+   color: inherit;
+   text-align: center;
+   font: inherit;
+   text-transform: uppercase;
+   caret-color: transparent; /* Remove cursor piscante */
+ }
+ .cell.active { 
+   border: 2px solid var(--accent-color, #3b82f6); /* Borda com cor do tema */
+   box-shadow: 0 0 0 1px var(--accent-color, #3b82f6); /* Sombra com cor do tema */
+   transition: all 0.15s ease; /* Transição suave */
+   transform: scale(1.02); /* Leve aumento para destacar */
+   background: var(--accent-bg, rgba(59, 130, 246, 0.1)); /* Fundo com cor do tema */
+ }
 .cell.gray { background: var(--gray); color: #d1d5db; }
 .cell.yellow { background: var(--yellow); color: #1f2937; }
 .cell.green { background: var(--green); color: #052e16; }
@@ -121,6 +134,8 @@ button:hover { filter: brightness(1.1); }
   --button-border: #2a1743;
   --toast-bg: #a78bfa;
   --toast-text: #2e1065;
+  --accent-color: #a78bfa; /* Cor de destaque roxa */
+  --accent-bg: rgba(167, 139, 250, 0.1); /* Fundo de destaque roxo */
 }
 
 /* Overlay & Modal */
@@ -181,12 +196,31 @@ button:hover { filter: brightness(1.1); }
   pointer-events: none;
 }
 
-/* Flip animation for reveal */
-.cell.revealing { animation: flip 0.3s ease-in-out forwards; transform-origin: center; }
+ /* Flip animation for reveal */
+ .cell.revealing { animation: flip 0.2s ease-in-out forwards; transform-origin: center; }
 @keyframes flip {
   0% { transform: rotateX(0deg); }
   50% { transform: rotateX(90deg); }
   100% { transform: rotateX(0deg); }
+}
+
+@keyframes letterRevealPop {
+  0% { 
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0;
+  }
+  20% { 
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 1;
+  }
+  80% { 
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  100% { 
+    transform: translate(-50%, -50%) scale(0.9);
+    opacity: 0;
+  }
 }
 
 /* Theme toggle */
@@ -199,9 +233,143 @@ button:hover { filter: brightness(1.1); }
   border: 1px solid var(--border);
   border-radius: 999px;
   width: 44px; height: 44px;
+  transition: all 0.3s ease;
 }
-.lang-world { position: fixed; right: 16px; bottom: 70px; z-index: 70; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; width: 44px; height: 44px; display: grid; place-items: center; }
+
+/* Elementos que precisam de transições mais rápidas para animações */
+.cell, .key, .flip {
+  transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease, transform 0.2s ease;
+}
+
+/* Botões com transições mais rápidas */
+button {
+  transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease, filter 0.2s ease;
+}
+
+/* Container do botão de temas */
+.theme-container {
+  position: fixed;
+  right: 16px;
+  bottom: 70px;
+  z-index: 70;
+}
+
+/* Botão principal de temas */
+.theme-brush-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  width: 44px; 
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.theme-brush-btn:hover {
+  transform: rotate(15deg) scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.theme-brush-btn img {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.3s ease;
+}
+
+/* Sidebar de temas */
+.theme-sidebar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  transform: translateX(100%) scale(0.8);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 200px;
+}
+
+.theme-container:hover .theme-sidebar {
+  transform: translateX(0) scale(1);
+  opacity: 1;
+  visibility: visible;
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.theme-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  width: 40px; 
+  height: 40px;
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-btn:hover {
+  transform: scale(1.1);
+  filter: brightness(1.1);
+}
+
+.theme-btn.active {
+  border-color: var(--green);
+  box-shadow: 0 0 0 2px var(--green);
+}
+.lang-world { 
+  position: fixed; 
+  right: 16px; 
+  top: 16px; 
+  z-index: 70; 
+  background: var(--surface); 
+  border: 1px solid var(--border); 
+  border-radius: 999px; 
+  width: 44px; 
+  height: 44px; 
+  display: grid; 
+  place-items: center; 
+}
 .world-icon { width: 16px; height: 18px; display: block; margin: 0; justify-content: center; align-items: center;}
+
+.info-btn {
+  position: fixed;
+  right: 16px;
+  top: 70px;
+  z-index: 70;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.info-btn:hover {
+  background: var(--panel);
+  transform: scale(1.05);
+}
 
 /* Help modal */
 .help-grid {
@@ -216,9 +384,97 @@ button:hover { filter: brightness(1.1); }
 .desc { color: var(--muted); font-size: 14px; }
 .help-tries { margin-top: 10px; color: var(--muted); }
 
-.secrets { margin-top: 12px; text-align: left; }
+/* Info modal */
+.info-content {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.info-content p {
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.github-link {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.github-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.github-btn:hover {
+  background: var(--panel);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.github-icon {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.secrets { margin-top: 12px; text-align: center; }
 .secrets h3 { margin: 8px 0 6px; font-size: 16px; }
 .secrets p { margin: 4px 0; color: var(--muted); }
+
+/* Novos estilos para seção de segredos */
+#secretsContent h3 {
+  margin: 0 0 8px 0;
+  color: var(--accent-color);
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+}
+
+#secretsContent h4 {
+  margin: 16px 0 4px 0;
+  color: var(--accent-color);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.secret-item {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  border-left: 3px solid var(--accent-color);
+}
+
+.secret-item:last-child {
+  margin-bottom: 0;
+}
+
+/* Animação fade para conteúdo dos segredos */
+#secretsContent {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.3s ease, max-height 0.3s ease;
+}
+
+#secretsContent.show {
+  opacity: 1;
+  max-height: 400px;
+}
 
 @keyframes neonGlow {
   0%, 100% {
