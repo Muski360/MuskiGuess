@@ -281,6 +281,17 @@ async function checkWordExists(word) {
   }
 }
 
+// Função para ativar animação de tremor na tela
+function shakeScreen() {
+  const body = document.body;
+  body.classList.add('shake-animation');
+  
+  // Remove a classe após a animação terminar
+  setTimeout(() => {
+    body.classList.remove('shake-animation');
+  }, 600); // 0.6s = duração da animação
+}
+
 function maybeRevealSecret(r) {
   if (r !== attempts) return;
   const val = readGuessFromRow(r).toUpperCase();
@@ -426,6 +437,7 @@ async function submitCurrentRow() {
   
   if (!/^[a-zA-Zçãõáéíóúàèìòùâêîôû]{5}$/.test(guess)) {
     setStatus(currentLang === 'en' ? 'Fill all 5 letters before sending.' : 'Complete as 5 letras antes de enviar.');
+    shakeScreen(); // Tremor para palavra incompleta
     return;
   }
   
@@ -435,6 +447,7 @@ async function submitCurrentRow() {
     const isValidWord = await checkWordExists(guess);
     if (!isValidWord) {
       setStatus(currentLang === 'en' ? 'Word not found in dictionary. Try another word.' : 'Palavra não encontrada no dicionário. Tente outra palavra.');
+      shakeScreen(); // Tremor para palavra inválida
       return;
     }
   }
@@ -448,7 +461,11 @@ async function sendGuess(guess) {
     body: JSON.stringify({ gameId, guess })
   });
   const data = await res.json();
-  if (!res.ok) { setStatus(data.error || 'Erro ao enviar palpite'); return; }
+  if (!res.ok) { 
+    setStatus(data.error || 'Erro ao enviar palpite'); 
+    shakeScreen(); // Tremor para erro do servidor
+    return; 
+  }
 
   const row = board.children[attempts];
   await revealRowWithAnimation(row, data.feedback);
