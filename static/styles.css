@@ -23,25 +23,108 @@
   transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
 }
 
-html, body { height: 100%; }
+/* Micro feedback ao digitar: pulinho rápido */
+@keyframes cellBump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+.cell.bump { animation: cellBump 120ms ease-out; }
+
+html, body { height: 100%; overflow-x: hidden; }
 body {
   margin: 0;
   font-family: Poppins;
   background: radial-gradient(1200px 600px at 10% 10%, #0b1225 0%, var(--bg) 60%);
   color: var(--text);
+  -webkit-tap-highlight-color: transparent;
 }
 .app {
   max-width: 680px;
   margin: 0 auto;
   padding: 24px 16px 48px;
 }
-h1 { margin: 8px 0 16px; letter-spacing: 1px; color: var(--text); }
+h1 { 
+  margin: 2px 0 16px; 
+  letter-spacing: 2px; 
+  color: var(--text); 
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 2.5rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(135deg, var(--text) 0%, var(--accent-color) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-align: center;
+}
+
+/* Container do logo */
+.logo-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 8px 0 0px;
+}
+
+/* Top mode menu */
+.mode-menu {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  margin: 8px 0 6px;
+}
+.menu-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.menu-item.active { border-color: var(--accent-color); box-shadow: 0 0 0 2px var(--accent-bg); }
+.menu-item.disabled { opacity: 0.5; cursor: not-allowed; }
+
+.logo-image {
+  max-width: 120px;
+  height: auto;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+  transition: all 0.3s ease;
+}
+
+.logo-image:hover {
+  transform: scale(1.05);
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.3));
+}
+
+/* Logo muda com os temas */
+.muski-theme .logo-image {
+  filter: drop-shadow(0 4px 8px rgba(167, 139, 250, 0.3)) hue-rotate(280deg);
+}
+
+.muski-theme .logo-image:hover {
+  filter: drop-shadow(0 6px 12px rgba(167, 139, 250, 0.5)) hue-rotate(280deg);
+}
 .controls {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;
 }
+.mode-switch { margin-left: auto; display: flex; gap: 8px; }
+.mode-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.mode-btn.active { border-color: var(--accent-color); box-shadow: 0 0 0 2px var(--accent-bg); }
 .lang-switch { margin-left: auto; display: inline-flex; gap: 8px; align-items: center; color: var(--muted); }
 .lang-switch input { transform: scale(1.2); }
 button {
@@ -58,8 +141,7 @@ button:hover { filter: brightness(1.1); }
 
 .board {
   display: grid;
-  grid-template-rows: repeat(6, 1fr);
-  gap: 8px;
+  gap: 6px;
   background: rgba(255,255,255,0.02);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -67,14 +149,36 @@ button:hover { filter: brightness(1.1); }
   margin: 16px 0 12px;
   min-height: 380px;
 }
+.row-block { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.row-block.duet { 
+  display: flex; 
+  gap: 32px; 
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  justify-content: center;
+}
+.row-block.duet .row { 
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  min-height: 54px;
+  flex: 1;
+  max-width: 300px;
+}
 .app.blurred { filter: blur(3px); }
 .row {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 8px;
+  gap: 6px;
 }
 .cell {
-  height: 56px;
+  height: 54px;
   border-radius: 8px;
   border: 1px solid var(--border);
   display: grid;
@@ -83,18 +187,20 @@ button:hover { filter: brightness(1.1); }
   font-weight: 600;
   letter-spacing: 1px;
   background: var(--surface);
+  cursor: pointer; /* visual de clicável */
 }
- .cell input {
-   width: 100%;
-   height: 100%;
-   border: none;
-   outline: none;
-   background: transparent;
-   color: inherit;
-   text-align: center;
-   font: inherit;
-   text-transform: uppercase;
+.cell input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  text-align: center;
+  font: inherit;
+  text-transform: uppercase;
    caret-color: transparent; /* Remove cursor piscante */
+    cursor: pointer; /* evita cursor de digitação (I-beam) ao passar o mouse */
  }
  .cell.active { 
    border: 2px solid var(--accent-color, #3b82f6); /* Borda com cor do tema */
@@ -104,19 +210,21 @@ button:hover { filter: brightness(1.1); }
    background: var(--accent-bg, rgba(59, 130, 246, 0.1)); /* Fundo com cor do tema */
  }
 .cell.gray { background: var(--gray); color: #d1d5db; }
-.cell.yellow { background: var(--yellow); color: #1f2937; }
-.cell.green { background: var(--green); color: #052e16; }
+/* Feedback fixo por padrão (independente do tema) */
+.cell.yellow { background: #eab308; color: #1f2937; }
+.cell.green { background: #22c55e; color: #052e16; }
 
 .hint { color: var(--muted); font-size: 14px; }
 .bottom-actions { margin-top: 12px; display: flex; justify-content: center; }
 .secondary { background: var(--surface); border-color: var(--border); color: var(--muted); }
-.keyboard { margin-top: 16px; display: grid; gap: 8px; }
-.key-row { display: flex; justify-content: center; gap: 6px; }
-.key { min-width: 36px; height: 46px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); display: grid; place-items: center; padding: 0 8px; }
+.keyboard { margin-top: 16px; display: grid; gap: 8px; max-width: 600px; margin-left: auto; margin-right: auto; }
+.key-row { display: flex; justify-content: center; gap: 4px; }
+.key { min-width: 40px; height: 50px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); display: grid; place-items: center; padding: 0 8px; font-size: 15px; }
 .key.gray { background: var(--gray); color: #d1d5db; }
-.key.yellow { background: var(--yellow); color: #1f2937; }
-.key.green { background: var(--green); color: #052e16; }
-.key.wide { min-width: 70px; }
+/* Feedback fixo no teclado também */
+.key.yellow { background: #eab308; color: #1f2937; }
+.key.green { background: #22c55e; color: #052e16; }
+.key.wide { min-width: 76px; }
 .key:active { transform: translateY(1px); }
 
 /* Secret purple theme */
@@ -184,6 +292,10 @@ button:hover { filter: brightness(1.1); }
   border-radius: 10px;
   border: 1px solid #14532d;
   z-index: 60;
+  max-width: 90vw;
+  width: auto;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
 }
 
 /* Confetti canvas */
@@ -196,7 +308,7 @@ button:hover { filter: brightness(1.1); }
   pointer-events: none;
 }
 
- /* Flip animation for reveal */
+/* Flip animation for reveal */
  .cell.revealing { animation: flip 0.2s ease-in-out forwards; transform-origin: center; }
 @keyframes flip {
   0% { transform: rotateX(0deg); }
@@ -209,11 +321,11 @@ button:hover { filter: brightness(1.1); }
     transform: translate(-50%, -50%) scale(0.5);
     opacity: 0;
   }
-  20% { 
+  15% { 
     transform: translate(-50%, -50%) scale(1.1);
     opacity: 1;
   }
-  80% { 
+  85% { 
     transform: translate(-50%, -50%) scale(1);
     opacity: 1;
   }
@@ -264,6 +376,22 @@ button:hover { filter: brightness(1.1); }
 
 .shake-animation {
   animation: shake 0.6s ease-in-out;
+  will-change: transform;
+}
+
+/* Desabilitar seleção de texto/arrasto para manter UI limpa */
+body, .app, .board, .row, .cell, .cell input, .keyboard, .key, button, .theme-btn, .theme-brush-btn, .lang-world, .info-btn, .theme-toggle, .theme-dot {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+img {
+  -webkit-user-drag: none;
+  -moz-user-drag: none;
+  -ms-user-drag: none;
+  pointer-events: none;
 }
 
 /* Botões com transições mais rápidas */
@@ -560,8 +688,17 @@ button {
   }
   
   h1 {
-    font-size: 24px;
-    margin: 4px 0 12px;
+    font-size: 2rem;
+    margin: 1px 0 12px;
+    letter-spacing: 1px;
+  }
+  
+  .logo-container {
+    margin: 6px 0 0px;
+  }
+  
+  .logo-image {
+    max-width: 100px;
   }
   
   /* Controles */
@@ -580,13 +717,20 @@ button {
   
   /* Tabuleiro */
   .board {
-    gap: 4px;
+    gap: 3px;
     margin: 16px auto;
+  }
+  .row-block.duet { 
+    flex-direction: column; 
+    gap: 12px; 
+  }
+  .row-block.duet .row {
+    max-width: none;
   }
   
   .cell {
-    width: 50px;
-    height: 50px;
+    width: 48px;
+    height: 48px;
     font-size: 20px;
   }
   
@@ -603,8 +747,9 @@ button {
   
   /* Teclado */
   .keyboard {
-    gap: 4px;
+    gap: 5px;
     margin-top: 16px;
+    max-width: 100%;
   }
   
   .key-row {
@@ -613,14 +758,14 @@ button {
   }
   
   .key {
-    min-width: 28px;
-    height: 40px;
+    min-width: 32px;
+    height: 42px;
     font-size: 14px;
-    border-radius: 4px;
+    border-radius: 6px;
   }
   
   .key.wide {
-    min-width: 60px;
+    min-width: 66px;
   }
   
   /* Botões flutuantes */
@@ -775,11 +920,14 @@ button {
   
   /* Toast */
   .toast {
-    bottom: 20px;
-    left: 20px;
-    right: 20px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    top: 12px;
+    bottom: auto;
     padding: 12px 16px;
     font-size: 14px;
+    max-width: 92vw;
   }
 }
 
@@ -790,12 +938,17 @@ button {
   }
   
   h1 {
-    font-size: 20px;
+    font-size: 1.8rem;
+    letter-spacing: 0.5px;
+  }
+  
+  .logo-image {
+    max-width: 80px;
   }
   
   .cell {
-    width: 45px;
-    height: 45px;
+    width: 44px;
+    height: 44px;
     font-size: 18px;
   }
   
@@ -804,13 +957,13 @@ button {
   }
   
   .key {
-    min-width: 24px;
-    height: 36px;
-    font-size: 12px;
+    min-width: 26px;
+    height: 38px;
+    font-size: 13px;
   }
   
   .key.wide {
-    min-width: 50px;
+    min-width: 54px;
   }
   
   .theme-btn {

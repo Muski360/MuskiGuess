@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MuskiGuess</title>
-    <link rel="icon" type="image/svg+xml" href="/static/images/logoicon.svg">
+    <link rel="icon" type="image/png" sizes="1024x1024" href="/static/images/LogoIcon.png?">
     <link rel="stylesheet" href="/static/styles.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,6 +15,15 @@
 </head>
 <body>
     <div class="app" id="appRoot">
+        <nav class="mode-menu" aria-label="Game modes">
+          <button id="menuClassic" class="menu-item active" data-mode="single">Clássico</button>
+          <button id="menuDuplet" class="menu-item" data-mode="duet">Dupleto</button>
+          <button id="menuQuaplet" class="menu-item disabled" disabled>Quapleto</button>
+          <button id="menuMultiplayer" class="menu-item disabled" disabled>Multiplayer</button>
+        </nav>
+        <div class="logo-container">
+            <img id="logoImage" src="static/images/Logo_noBackground.png" alt="MuskiGuess Logo" class="logo-image" />
+        </div>
         <h1>MuskiGuess</h1>
         <div class="controls">
             <button id="newGameBtn">Novo jogo</button>
@@ -22,7 +31,7 @@
         </div>
 
         <div id="board" class="board" aria-label="Tabuleiro do jogo"></div>
-        <p class="hint">Digite diretamente nos quadrados. Boa sorte!</p>
+        <p class="hint"></p>
 
         <div class="bottom-actions">
           <button id="helpBtn" class="secondary"></button>

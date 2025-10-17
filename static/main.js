@@ -4,11 +4,15 @@ console.log('JavaScript carregado!');
 let gameId = null;
 let attempts = 0;
 let maxAttempts = 6;
+let wordCount = 1; // 1 = single, >=2 = duet/multi
+let gameMode = 'single'; // 'single' | 'duet'
 let currentCol = 0;
 let secretRevealed = false;
 let currentLang = 'pt';
 let isRevealing = false;
 let muskiActivated = false;
+let isSubmitting = false; // evita duplo envio
+let suppressAutoAdvance = false; // evita avanço duplo entre keydown e input
 
 // Declarar variáveis do teclado ANTES das funções que as usam
 const rows = [
@@ -26,12 +30,17 @@ let helpBtn, helpOverlay, helpCloseBtn, helpTitle, helpGray, helpYellow, helpGre
 let secretsBtn, secretsContent, secretsSectionTitle, secretsSectionText, secretMuskiTitle, secretMuskiText, secretBillyTitle, secretBillyText;
 let newGameBtnEl, hintEl, gameOverTitleEl, gameOverTextEl, playAgainBtnEl, toastEl;
 let winTitleEl, winTextPrefixEl, winPlayAgainBtnEl, keyboardEl, langWorldBtn;
+let menuClassicBtn, menuDupletBtn, menuQuapletBtn, menuMultiplayerBtn;
 let infoBtn, infoOverlay, infoCloseBtn, infoTitle, infoText, githubText;
+let logoImage;
 
 // Função para inicializar elementos DOM
 function initDOMElements() {
   appRoot = document.getElementById('appRoot');
   board = document.getElementById('board');
+  if (!board) {
+    console.error('Board element not found in DOM!');
+  }
   statusEl = document.getElementById('status');
   newGameBtn = document.getElementById('newGameBtn');
   overlay = document.getElementById('overlay');
@@ -65,6 +74,7 @@ function initDOMElements() {
   secretBillyText = document.getElementById('secretBillyText');
   newGameBtnEl = document.getElementById('newGameBtn');
   hintEl = document.querySelector('.hint');
+  logoImage = document.getElementById('logoImage');
   gameOverTitleEl = document.querySelector('#overlay .modal h2');
   gameOverTextEl = document.querySelector('#overlay .modal p');
   playAgainBtnEl = document.getElementById('playAgainBtn');
@@ -74,6 +84,10 @@ function initDOMElements() {
   winPlayAgainBtnEl = document.getElementById('winPlayAgainBtn');
   keyboardEl = document.getElementById('keyboard');
   langWorldBtn = document.getElementById('langWorld');
+  menuClassicBtn = document.getElementById('menuClassic');
+  menuDupletBtn = document.getElementById('menuDuplet');
+  menuQuapletBtn = document.getElementById('menuQuaplet');
+  menuMultiplayerBtn = document.getElementById('menuMultiplayer');
   infoBtn = document.getElementById('infoBtn');
   infoOverlay = document.getElementById('infoOverlay');
   infoCloseBtn = document.getElementById('infoCloseBtn');
@@ -90,29 +104,86 @@ function resizeCanvas() {
 }
 window.addEventListener('resize', resizeCanvas);
 
+// Garantir foco no input ativo após seleções/cliques fora
+document.addEventListener('selectionchange', () => {
+  // Se o foco não está em um input da linha ativa, re-focar
+  const active = document.activeElement;
+  const inputs = getRowInputs(attempts) || [];
+  if (!inputs.includes(active)) {
+    ensureFocusCurrent();
+  }
+});
+
+document.addEventListener('mouseup', () => {
+  // Após clicar fora, recupere o foco
+  setTimeout(ensureFocusCurrent, 0);
+});
+
+document.addEventListener('keydown', (e) => {
+  // Se usuário começa a digitar e não há foco, recupere-o
+  if (/^[a-zA-Zçãõáéíóúàèìòùâêîôû]$/.test(e.key)) {
+    const active = document.activeElement;
+    const inputs = getRowInputs(attempts) || [];
+    if (!inputs.includes(active)) {
+      ensureFocusCurrent();
+    }
+  }
+});
+
 function renderBoard() {
-  if (!board) return;
+  if (!board) {
+    console.error('Board element not found!');
+    return;
+  }
   board.innerHTML = '';
   for (let r = 0; r < maxAttempts; r++) {
-    const row = document.createElement('div');
-    row.className = 'row';
-    for (let c = 0; c < 5; c++) {
-      const cell = document.createElement('div');
-      cell.className = 'cell';
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.maxLength = 1;
-      input.disabled = r !== attempts;
-      input.tabIndex = r === attempts ? (c + 1) : -1;
-      input.addEventListener('input', () => onInput(r, c, input));
-      input.addEventListener('keydown', (e) => onKeyDown(e, r, c, input));
-      cell.appendChild(input);
-      row.appendChild(cell);
+    if (wordCount === 1) {
+      const row = document.createElement('div');
+      row.className = 'row';
+      for (let c = 0; c < 5; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.maxLength = 1;
+        input.disabled = r !== attempts;
+        input.tabIndex = r === attempts ? (c + 1) : -1;
+        input.addEventListener('input', () => onInput(r, c, input));
+        input.addEventListener('keydown', (e) => onKeyDown(e, r, c, input));
+        cell.appendChild(input);
+        row.appendChild(cell);
+      }
+      board.appendChild(row);
+    } else {
+      const block = document.createElement('div');
+      block.className = 'row-block duet';
+      for (let wi = 0; wi < wordCount; wi++) {
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.dataset.wordIndex = String(wi);
+        for (let c = 0; c < 5; c++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.maxLength = 1;
+          input.disabled = r !== attempts;
+          input.tabIndex = r === attempts ? (c + 1) : -1;
+          input.addEventListener('input', () => onInput(r, c, input));
+          input.addEventListener('keydown', (e) => onKeyDown(e, r, c, input));
+          cell.appendChild(input);
+          row.appendChild(cell);
+        }
+        block.appendChild(row);
+      }
+      board.appendChild(block);
     }
-    board.appendChild(row);
   }
   focusCell(attempts, 0);
-  addCellClickListeners(); // Adicionar event listeners de clique
+  // Add a small delay to ensure DOM is ready
+  setTimeout(() => {
+    addCellClickListeners(); // Adicionar event listeners de clique
+  }, 10);
   renderKeyboard();
 }
 
@@ -131,7 +202,17 @@ async function newGame() {
   await new Promise(resolve => setTimeout(resolve, 300));
   
   try {
-    const res = await fetch('/api/new-game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lang: currentLang }) });
+    const payload = { lang: currentLang };
+    if (gameMode === 'duet') {
+      payload.mode = 'duet';
+      payload.wordCount = 2;
+      payload.maxAttempts = 7;
+    } else {
+      payload.mode = 'single';
+      payload.wordCount = 1;
+      payload.maxAttempts = 6;
+    }
+    const res = await fetch('/api/new-game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (!res.ok) { 
       setStatus('Erro ao criar novo jogo - servidor não respondeu'); 
       return; 
@@ -140,6 +221,7 @@ async function newGame() {
     gameId = data.gameId;
     attempts = 0;
     maxAttempts = data.maxAttempts;
+    wordCount = data.wordCount || 1;
     currentCol = 0;
     secretRevealed = false;
     muskiActivated = false;
@@ -198,16 +280,47 @@ async function newGame() {
 
 function getRowInputs(rowIndex) {
   if (!board || !board.children[rowIndex]) return [];
-  return Array.from(board.children[rowIndex].querySelectorAll('input'));
+  if (wordCount === 1) {
+    return Array.from(board.children[rowIndex].querySelectorAll('input'));
+  }
+  const block = board.children[rowIndex];
+  const firstRow = block.querySelector('.row');
+  return firstRow ? Array.from(firstRow.querySelectorAll('input')) : [];
 }
 
 function onInput(r, c, input) {
   input.value = input.value.toUpperCase().replace(/[^A-ZÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ]/g, '');
+  
+  // Mirror typing in duet mode
+  if (wordCount > 1 && r === attempts) {
+    const block = board.children[r];
+    const rows = block.querySelectorAll('.row');
+    rows.forEach((rowEl, idx) => {
+      if (idx === 0) return; // Skip the first row (the one being typed in)
+      const inputs = rowEl.querySelectorAll('input');
+      if (inputs[c]) {
+        inputs[c].value = input.value;
+      }
+    });
+  }
+  
+  if (suppressAutoAdvance) { suppressAutoAdvance = false; return; }
   if (input.value && c < 4) {
     focusCell(r, c + 1);
   }
   // verifica segredo "BILLY" na linha ativa
   maybeRevealSecret(r);
+  // micro feedback visual de digitação
+  try {
+    const cell = input.parentElement;
+    if (cell) {
+      cell.classList.remove('bump');
+      // forçar reflow para reiniciar a animação
+      void cell.offsetWidth;
+      cell.classList.add('bump');
+      setTimeout(() => cell.classList.remove('bump'), 160);
+    }
+  } catch {}
 }
 
 function onKeyDown(e, r, c, input) {
@@ -215,6 +328,18 @@ function onKeyDown(e, r, c, input) {
   if (e.key === 'Backspace') {
     if (input.value) {
       input.value = '';
+      // Mirror backspace in duet mode
+      if (wordCount > 1 && r === attempts) {
+        const block = board.children[r];
+        const rows = block.querySelectorAll('.row');
+        rows.forEach((rowEl, idx) => {
+          if (idx === 0) return; // Skip the first row
+          const inputs = rowEl.querySelectorAll('input');
+          if (inputs[c]) {
+            inputs[c].value = '';
+          }
+        });
+      }
       // Verificar segredos após apagar
       maybeRevealSecret(r);
       return;
@@ -228,8 +353,37 @@ function onKeyDown(e, r, c, input) {
     if (c > 0) focusCell(r, c - 1);
   } else if (e.key === 'ArrowRight') {
     if (c < 4) focusCell(r, c + 1);
+  } else if (e.key === ' ') {
+    // Espaço avança para a próxima célula
+    e.preventDefault();
+    if (c < 4) {
+      focusCell(r, c + 1);
+    }
   } else if (e.key === 'Enter') {
-    submitCurrentRow();
+    // evita duplo envio via Enter rápido
+    if (!isSubmitting) submitCurrentRow();
+  } else if (/^[a-zA-Zçãõáéíóúàèìòùâêîôû]$/.test(e.key)) {
+    // Substitui a letra atual e avança
+    e.preventDefault();
+    input.value = e.key.toUpperCase();
+    // Mirror typing in duet mode
+    if (wordCount > 1 && r === attempts) {
+      const block = board.children[r];
+      const rows = block.querySelectorAll('.row');
+      rows.forEach((rowEl, idx) => {
+        if (idx === 0) return; // Skip the first row
+        const inputs = rowEl.querySelectorAll('input');
+        if (inputs[c]) {
+          inputs[c].value = e.key.toUpperCase();
+        }
+      });
+    }
+    suppressAutoAdvance = true; // impedir que onInput avance novamente
+    if (c < 4) {
+      focusCell(r, c + 1);
+    }
+    // Verificar segredos após digitar
+    maybeRevealSecret(r);
   }
 }
 
@@ -242,14 +396,41 @@ function focusCell(r, c) {
     if (cell) cell.classList.toggle('active', idx === c);
   });
   if (rowInputs[c]) rowInputs[c].focus();
+  // also mirror active highlight on duet secondary rows of the same attempt
+  if (wordCount > 1 && board && board.children[r]) {
+    const block = board.children[r];
+    const rows = block.querySelectorAll('.row');
+    rows.forEach((rowEl, idxRow) => {
+      if (idxRow === 0) return; // first row already handled
+      const inputs = rowEl.querySelectorAll('input');
+      inputs.forEach((inp, idx) => {
+        const cell = inp.parentElement;
+        if (cell) cell.classList.toggle('active', idx === c);
+      });
+    });
+  }
 }
 
 // Função para adicionar event listeners de clique nas células
 function addCellClickListeners() {
   const cells = document.querySelectorAll('.cell');
   cells.forEach((cell, index) => {
-    const row = Math.floor(index / 5);
-    const col = index % 5;
+    // Calculate row/col for single or duet
+    let row, col;
+    if (wordCount === 1) {
+      row = Math.floor(index / 5);
+      col = index % 5;
+    } else {
+      // In duet, inputs are laid out in blocks; simplest is to derive from DOM
+      const parentRow = cell.closest('.row');
+      const parentBlock = cell.closest('.row-block');
+      if (!parentRow || !parentBlock) {
+        console.warn('Could not find parent row or block for cell');
+        return;
+      }
+      row = Array.from(board.children).indexOf(parentBlock);
+      col = Array.from(parentRow.children).indexOf(cell);
+    }
     
     cell.addEventListener('click', () => {
       // Só permitir clique na linha ativa
@@ -283,12 +464,12 @@ async function checkWordExists(word) {
 
 // Função para ativar animação de tremor na tela
 function shakeScreen() {
-  const body = document.body;
-  body.classList.add('shake-animation');
+  const target = appRoot || document.body;
+  target.classList.add('shake-animation');
   
   // Remove a classe após a animação terminar
   setTimeout(() => {
-    body.classList.remove('shake-animation');
+    target.classList.remove('shake-animation');
   }, 600); // 0.6s = duração da animação
 }
 
@@ -299,6 +480,8 @@ function maybeRevealSecret(r) {
   // Verificar se é uma palavra secreta completa
   if (val === 'BILLY' && !secretRevealed) {
     revealSecretTitle();
+    // Mostrar palavra atual no logo
+    showCurrentWordInLogo();
     return;
   }
   if (val === 'MUSKI' && !muskiActivated) {
@@ -308,6 +491,16 @@ function maybeRevealSecret(r) {
     // Limpar a linha atual para não consumir tentativa
     const inputs = getRowInputs(attempts);
     inputs.forEach(input => input.value = '');
+    // Clear mirrored inputs in duet mode
+    if (wordCount > 1) {
+      const block = board.children[attempts];
+      const rows = block.querySelectorAll('.row');
+      rows.forEach((rowEl, idx) => {
+        if (idx === 0) return; // Skip the first row (already cleared)
+        const mirroredInputs = rowEl.querySelectorAll('input');
+        mirroredInputs.forEach(input => input.value = '');
+      });
+    }
     focusCell(attempts, 0);
     return;
   }
@@ -316,6 +509,16 @@ function maybeRevealSecret(r) {
     // Limpar a linha atual para não consumir tentativa
     const inputs = getRowInputs(attempts);
     inputs.forEach(input => input.value = '');
+    // Clear mirrored inputs in duet mode
+    if (wordCount > 1) {
+      const block = board.children[attempts];
+      const rows = block.querySelectorAll('.row');
+      rows.forEach((rowEl, idx) => {
+        if (idx === 0) return; // Skip the first row (already cleared)
+        const mirroredInputs = rowEl.querySelectorAll('input');
+        mirroredInputs.forEach(input => input.value = '');
+      });
+    }
     focusCell(attempts, 0);
     return;
   }
@@ -332,30 +535,36 @@ async function revealRandomLetter() {
     }
     
     const data = await res.json();
-    const correctWord = data.correctWord.toUpperCase();
-    
-    // Obter letras únicas da palavra correta
-    const wordLetters = [...new Set(correctWord.split(''))];
-    
-    // Filtrar letras que ainda não foram descobertas E que existem na palavra
-    const undiscoveredWordLetters = wordLetters.filter(letter => !keyStatuses[letter]);
-    
-    if (undiscoveredWordLetters.length === 0) {
-      setStatus(currentLang === 'en' ? 'All word letters already discovered!' : 'Todas as letras da palavra já foram descobertas!');
-      return;
-    }
-    
-    // Escolher uma letra aleatória da palavra
-    const randomLetter = undiscoveredWordLetters[Math.floor(Math.random() * undiscoveredWordLetters.length)];
-    
-    // Marcar a letra como revelada (amarela para indicar que existe na palavra)
-    keyStatuses[randomLetter] = 'yellow';
-    
-    // Atualizar o teclado visual
+    const words = [];
+    if (data.correctWord) words.push(String(data.correctWord).toUpperCase());
+    if (Array.isArray(data.correctWords)) data.correctWords.forEach(w => words.push(String(w).toUpperCase()));
+
+    // choose letters per word separately (max two for duet)
+    const revealed = [];
+    words.slice(0, Math.max(1, wordCount)).forEach((w, idx) => {
+      const letters = [...new Set(w.split(''))];
+      const pool = letters.filter(letter => !keyStatuses[letter]);
+      if (pool.length > 0) {
+        const picked = pool[Math.floor(Math.random() * pool.length)];
+        // mark yellow (exists)
+        keyStatuses[picked] = 'yellow';
+        revealed.push({ letter: picked, index: idx });
+      }
+    });
+
     renderKeyboard();
-    
-    // Mostrar feedback visual
-    showLetterRevealAnimation(randomLetter);
+    // Visual feedback: show which word each letter belongs to
+    if (revealed.length === 0) {
+      setStatus(currentLang === 'en' ? 'All word letters already discovered!' : 'Todas as letras já reveladas!');
+    } else {
+      const title = currentLang === 'en' ? 'LETTER REVEALED:' : 'LETRA REVELADA:';
+      let content = '';
+      revealed.forEach((item, idx) => {
+        content += `${item.index + 1} = ${item.letter}`;
+        if (idx < revealed.length - 1) content += '\n';
+      });
+      showLetterRevealAnimation(title, content);
+    }
     
   } catch (error) {
     console.error('Erro ao revelar letra:', error);
@@ -364,17 +573,29 @@ async function revealRandomLetter() {
 }
 
 // Função para mostrar animação de revelação da letra
-function showLetterRevealAnimation(letter) {
+function showLetterRevealAnimation(title, content) {
   // Criar elemento de notificação temporário
   const notification = document.createElement('div');
   notification.className = 'letter-reveal-notification';
+  
+  // Split content by newlines and create formatted display
+  const lines = content.split('\n');
+  const formattedContent = lines.map(line => {
+    const parts = line.split(' = ');
+    if (parts.length === 2) {
+      return `<div class="letter-reveal-line">
+        <span class="letter-reveal-word">${parts[0]}</span>
+        <span class="letter-reveal-equals">=</span>
+        <span class="letter-reveal-letter">${parts[1]}</span>
+      </div>`;
+    }
+    return `<div class="letter-reveal-line">${line}</div>`;
+  }).join('');
+  
   notification.innerHTML = `
     <div class="letter-reveal-content">
-      <span class="letter-reveal-icon">✨</span>
-      <span class="letter-reveal-text">
-        ${currentLang === 'en' ? 'Letter revealed:' : 'Letra revelada:'} 
-        <strong>${letter}</strong>
-      </span>
+      <div class="letter-reveal-title">${title}</div>
+      <div class="letter-reveal-letters">${formattedContent}</div>
     </div>
   `;
   
@@ -387,22 +608,63 @@ function showLetterRevealAnimation(letter) {
     background: var(--panel);
     border: 2px solid var(--accent-color);
     border-radius: 12px;
-    padding: 16px 24px;
+    padding: 20px 30px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     z-index: 1000;
-    animation: letterRevealPop 2s ease-out forwards;
+    animation: letterRevealPop 4s ease-out forwards;
     font-family: Poppins;
     color: var(--text);
+    text-align: center;
+    min-width: 200px;
   `;
+  
+  // Add styles for the content
+  const style = document.createElement('style');
+  style.textContent = `
+    .letter-reveal-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--accent-color);
+    }
+    .letter-reveal-line {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 8px 0;
+    }
+    .letter-reveal-word {
+      font-size: 18px;
+      font-weight: 600;
+      margin-right: 8px;
+    }
+    .letter-reveal-equals {
+      font-size: 18px;
+      margin: 0 8px;
+    }
+    .letter-reveal-letter {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--accent-color);
+      background: var(--accent-bg);
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--accent-color);
+    }
+  `;
+  document.head.appendChild(style);
   
   document.body.appendChild(notification);
   
-  // Remover após 2 segundos
+  // Remover após 4 segundos
   setTimeout(() => {
     if (notification.parentNode) {
       notification.parentNode.removeChild(notification);
     }
-  }, 2000);
+    if (style.parentNode) {
+      style.parentNode.removeChild(style);
+    }
+  }, 4000);
 }
 
 async function revealSecretTitle() {
@@ -411,10 +673,11 @@ async function revealSecretTitle() {
     const res = await fetch(`/api/peek?gameId=${encodeURIComponent(gameId)}`);
     if (!res.ok) return;
     const data = await res.json();
-    if (data && data.correctWord) {
+    const displayWord = data.correctWord || (Array.isArray(data.correctWords) ? data.correctWords.join(' / ') : null);
+    if (displayWord) {
       const titleEl = document.querySelector('h1');
       if (titleEl) {
-        titleEl.textContent = data.correctWord.toUpperCase();
+        titleEl.textContent = String(displayWord).toUpperCase();
         titleEl.classList.add('reveal-effect'); // 👈 adiciona a animação
       }
       secretRevealed = true;
@@ -425,7 +688,7 @@ async function revealSecretTitle() {
 }
 
 async function submitCurrentRow() {
-  if (isRevealing) return;
+  if (isRevealing || isSubmitting) return;
   if (!gameId) { setStatus('Clique em Novo jogo'); return; }
   const guess = readGuessFromRow(attempts);
   const upperGuess = guess.toUpperCase();
@@ -452,7 +715,12 @@ async function submitCurrentRow() {
     }
   }
   
-  await sendGuess(guess);
+  try {
+    isSubmitting = true;
+    await sendGuess(guess);
+  } finally {
+    isSubmitting = false;
+  }
 }
 
 async function sendGuess(guess) {
@@ -467,8 +735,20 @@ async function sendGuess(guess) {
     return; 
   }
 
-  const row = board.children[attempts];
-  await revealRowWithAnimation(row, data.feedback);
+  if (wordCount === 1) {
+    const row = board.children[attempts];
+    await revealRowWithAnimation(row, data.feedback);
+    updateKeyboardFromFeedbackMulti([data.feedback]);
+  } else {
+    const block = board.children[attempts];
+    const rowsInBlock = Array.from(block.querySelectorAll('.row'));
+    // Start both row reveals concurrently
+    await Promise.all(rowsInBlock.map((rowEl, wi) => {
+      const fb = (data.feedback && data.feedback[wi]) || [];
+      return revealRowWithAnimation(rowEl, fb);
+    }));
+    updateKeyboardFromFeedbackMulti(data.feedback || []);
+  }
 
   attempts = data.attempts;
   if (data.won) {
@@ -477,7 +757,8 @@ async function sendGuess(guess) {
     showWinOverlay(data.attempts);
   } else if (data.gameOver) {
     setStatus(currentLang === 'en' ? 'Game over!' : 'Fim de jogo!');
-    showOverlay(data.correctWord || '');
+    const cw = data.correctWord || (Array.isArray(data.correctWords) ? data.correctWords.join(' / ') : '');
+    showOverlay(cw);
   } else {
     enableNextRow();
     setStatus(currentLang === 'en' ? `Attempt ${attempts + 1} of ${maxAttempts}` : `Tentativa ${attempts + 1} de ${maxAttempts}`);
@@ -486,22 +767,24 @@ async function sendGuess(guess) {
 
 async function revealRowWithAnimation(row, feedback) {
   isRevealing = true;
+  const perCellDelay = 300; // total time per cell flip
+  // Start flip for all cells nearly together; apply statuses in mid-interval
+  const cells = Array.from(row.children);
+  cells.forEach(cell => cell.classList.add('revealing'));
+  await new Promise(r => setTimeout(r, perCellDelay / 2));
   for (let idx = 0; idx < 5; idx++) {
-    const cell = row.children[idx];
+    const cell = cells[idx];
     const input = cell.querySelector('input');
-    // suspense: inicia flip
-    cell.classList.add('revealing');
-    await new Promise(r => setTimeout(r, 150));
-    // metade do flip: aplica letra e estado
-    input.value = feedback[idx].letter;
+    const fb = feedback[idx];
+    if (!fb) continue;
+    input.value = fb.letter;
     input.disabled = true;
     input.tabIndex = -1;
-    cell.classList.add(feedback[idx].status);
+    cell.classList.add(fb.status);
     cell.classList.remove('active');
-    await new Promise(r => setTimeout(r, 150));
-    cell.classList.remove('revealing');
   }
-  updateKeyboardFromFeedback(feedback);
+  await new Promise(r => setTimeout(r, perCellDelay / 2));
+  cells.forEach(cell => cell.classList.remove('revealing'));
   isRevealing = false;
 }
 
@@ -529,21 +812,43 @@ function showWinOverlay(attemptCount) {
   if (winAttemptsEl) winAttemptsEl.textContent = attemptCount;
   if (winOverlay) winOverlay.classList.remove('hidden');
   if (appRoot) appRoot.classList.add('blurred');
+  // Mensagem de vitória dinâmica + traduzida no toast
+  const ptMap = {
+    1: 'Fenomenal! Meus parabéns!',
+    2: 'Excelente! Meus parabéns!',
+    3: 'Espetacular! Meus parabéns!',
+    4: 'Muito bom! Meus parabéns!',
+    5: 'Boa! Meus parabéns!',
+    6: 'Ufa! Meus parabéns!'
+  };
+  const enMap = {
+    1: 'Phenomenal! Congratulations!',
+    2: 'Excellent! Congratulations!',
+    3: 'Spectacular! Congratulations!',
+    4: 'Very good! Congratulations!',
+    5: 'Nice! Congratulations!',
+    6: 'Phew! Congratulations!'
+  };
+  const msg = (currentLang === 'en' ? enMap : ptMap)[attemptCount] || (currentLang === 'en' ? 'Congratulations!' : 'Meus parabéns!');
+  showToast(msg);
 }
 function hideWinOverlay() {
   if (winOverlay) winOverlay.classList.add('hidden');
   if (appRoot) appRoot.classList.remove('blurred');
 }
 
-function showToast() {
+function showToast(message) {
   if (toast) {
+    if (typeof message === 'string' && message.trim()) {
+      toast.textContent = message;
+    }
     toast.classList.remove('hidden');
-    setTimeout(() => { if (toast) toast.classList.add('hidden'); }, 1800);
+    setTimeout(() => { if (toast) toast.classList.add('hidden'); }, 2200);
   }
 }
 
 function showWinEffects() {
-  showToast();
+  // mensagem será definida em showWinOverlay com base na tentativa
   launchConfetti();
 }
 
@@ -725,6 +1030,24 @@ function initEventListeners() {
   }
   
   console.log('Event listeners inicializados');
+
+  // Top menu events
+  if (menuClassicBtn) {
+    menuClassicBtn.addEventListener('click', () => {
+      gameMode = 'single';
+      if (menuDupletBtn) menuDupletBtn.classList.remove('active');
+      menuClassicBtn.classList.add('active');
+      newGame();
+    });
+  }
+  if (menuDupletBtn) {
+    menuDupletBtn.addEventListener('click', () => {
+      gameMode = 'duet';
+      if (menuClassicBtn) menuClassicBtn.classList.remove('active');
+      menuDupletBtn.classList.add('active');
+      newGame();
+    });
+  }
 }
 
 // Inicializar quando o DOM estiver carregado
@@ -1192,7 +1515,11 @@ function updateHelpTexts() {
     helpGray.textContent = 'The letter is not in the word.';
     helpYellow.textContent = 'The letter is in the word but wrong position.';
     helpGreen.textContent = 'The letter is in the correct position.';
-    helpTries.textContent = 'You have 6 tries to guess the 5-letter word.';
+    helpTries.textContent = gameMode === 'duet' ? 'You have 7 tries to solve both words.' : 'You have 6 tries to guess the 5-letter word.';
+    if (menuClassicBtn) menuClassicBtn.textContent = 'Classic';
+    if (menuDupletBtn) menuDupletBtn.textContent = 'Duplet';
+    if (menuQuapletBtn) menuQuapletBtn.textContent = 'Quaplet';
+    if (menuMultiplayerBtn) menuMultiplayerBtn.textContent = 'Multiplayer';
   } else {
     helpBtn.textContent = 'Como jogar?';
     secretsBtn.textContent = 'Segredos';
@@ -1206,7 +1533,11 @@ function updateHelpTexts() {
     helpGray.textContent = 'A letra não existe na palavra.';
     helpYellow.textContent = 'A letra existe na palavra em outra posição.';
     helpGreen.textContent = 'A letra está na posição correta.';
-    helpTries.textContent = 'Você tem 6 tentativas para adivinhar a palavra de 5 letras.';
+    helpTries.textContent = gameMode === 'duet' ? 'Você tem 7 tentativas para resolver as duas palavras.' : 'Você tem 6 tentativas para adivinhar a palavra de 5 letras.';
+    if (menuClassicBtn) menuClassicBtn.textContent = 'Clássico';
+    if (menuDupletBtn) menuDupletBtn.textContent = 'Dupleto';
+    if (menuQuapletBtn) menuQuapletBtn.textContent = 'Quapleto';
+    if (menuMultiplayerBtn) menuMultiplayerBtn.textContent = 'Multijogador';
   }
 }
 
@@ -1228,7 +1559,7 @@ function applyLanguage() {
   updateInfoTexts();
   if (currentLang === 'en') {
     if (newGameBtnEl) newGameBtnEl.textContent = 'New game';
-    if (hintEl) hintEl.textContent = 'Type directly in the squares. Good luck!';
+    if (hintEl) hintEl.textContent = '';
     if (gameOverTitleEl) gameOverTitleEl.textContent = 'Game over';
     if (gameOverTextEl && gameOverTextEl.childNodes[0]) gameOverTextEl.childNodes[0].textContent = 'The correct word was: ';
     if (playAgainBtnEl) playAgainBtnEl.textContent = 'Play again';
@@ -1244,7 +1575,7 @@ function applyLanguage() {
     if (board) board.setAttribute('aria-label', 'Game board');
   } else {
     if (newGameBtnEl) newGameBtnEl.textContent = 'Novo jogo';
-    if (hintEl) hintEl.textContent = 'Digite diretamente nos quadrados. Boa sorte!';
+    if (hintEl) hintEl.textContent = '';
     if (gameOverTitleEl) gameOverTitleEl.textContent = 'Fim de jogo';
     if (gameOverTextEl && gameOverTextEl.childNodes[0]) gameOverTextEl.childNodes[0].textContent = 'A palavra correta era: ';
     if (playAgainBtnEl) playAgainBtnEl.textContent = 'Jogar novamente';
@@ -1283,7 +1614,11 @@ function renderKeyboard() {
 
 function onKeyPress(k) {
   if (isRevealing) return;
-  if (k === 'ENTER') { submitCurrentRow(); return; }
+  if (k === 'ENTER') { 
+    submitCurrentRow();
+    ensureFocusCurrent();
+    return; 
+  }
   if (k === '⌫') {
     const inputs = getRowInputs(attempts);
     const current = inputs[currentCol];
@@ -1291,12 +1626,14 @@ function onKeyPress(k) {
       current.value = '';
       // Verificar segredos após apagar
       maybeRevealSecret(attempts);
+      ensureFocusCurrent();
       return; 
     }
     if (currentCol > 0) {
       focusCell(attempts, currentCol - 1);
       // Verificar segredos após mover para trás
       maybeRevealSecret(attempts);
+      ensureFocusCurrent();
     }
     return;
   }
@@ -1309,17 +1646,54 @@ function onKeyPress(k) {
     // Verificar segredos após digitar
     maybeRevealSecret(attempts);
   }
+  ensureFocusCurrent();
+}
+
+function ensureFocusCurrent() {
+  const inputs = getRowInputs(attempts);
+  const current = inputs[currentCol];
+  if (current && typeof current.focus === 'function') {
+    current.focus();
+  }
+}
+
+// Função para mostrar a palavra atual no logo quando BILLY é digitado
+async function showCurrentWordInLogo() {
+  if (!gameId) return;
+  // Do NOT change the logo image per user request; only update H1 already handled in revealSecretTitle
+  try {
+    const response = await fetch(`/api/peek?gameId=${gameId}`);
+    if (response.ok) {
+      const data = await response.json();
+      const wordText = data.correctWord || (Array.isArray(data.correctWords) ? data.correctWords.join(' / ') : '');
+      if (wordText) {
+        setStatus(currentLang === 'en' ? `Current word: ${wordText}` : `Palavra atual: ${wordText}`);
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao obter palavra atual:', error);
+  }
 }
 
 function updateKeyboardFromFeedback(feedback) {
-  // precedence: green > yellow > gray
-  feedback.forEach(item => {
-    const l = item.letter;
-    const s = item.status;
+  updateKeyboardFromFeedbackMulti([feedback]);
+}
+
+function updateKeyboardFromFeedbackMulti(feedbacks) {
+  const precedence = { green: 3, yellow: 2, gray: 1 };
+  const best = {};
+  feedbacks.forEach(fb => {
+    (fb || []).forEach(item => {
+      const l = item.letter;
+      const s = item.status;
+      const prev = best[l] || 'gray';
+      if (precedence[s] > precedence[prev]) best[l] = s;
+    });
+  });
+  Object.entries(best).forEach(([l, s]) => {
     const prev = keyStatuses[l];
-    if (prev === 'green') return;
-    if (s === 'green' || (s === 'yellow' && prev !== 'green')) keyStatuses[l] = s;
-    if (!prev) keyStatuses[l] = s;
+    if (prev === 'green') return; // keep green
+    keyStatuses[l] = s;
   });
   renderKeyboard();
 }

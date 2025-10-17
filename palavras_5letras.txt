@@ -877,6 +877,16 @@ cabes
 cabia
 cabos
 cabra
+cacau
+hobby
+kiwis
+rango
+fugar
+kilos
+carma
+karma
+ninja
+ramal
 cacai
 cacam
 cacao
@@ -5375,6 +5385,9 @@ xinga
 xingo
 xisto
 xucra
+rugor
+dengo
+denga
 xucro
 zagas
 zanga

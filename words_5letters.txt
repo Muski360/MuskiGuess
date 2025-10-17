@@ -7,6 +7,9 @@ abaff
 abaft
 abama
 abase
+shoes
+socks
+books
 abash
 abask
 abate
@@ -34,6 +37,8 @@ ablow
 abmho
 abner
 abnet
+games
+doors
 abode
 abody
 spots
@@ -575,6 +580,7 @@ arhat
 arian
 aryan
 ariel
+stars
 aries
 arioi
 arion
@@ -9970,4 +9976,3 @@ zorro
 zosma
 zowie
 zudda
-
