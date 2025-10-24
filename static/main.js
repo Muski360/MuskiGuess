@@ -22,6 +22,13 @@ const rows = [
 ];
 let keyStatuses = {}; // letter -> gray|yellow|green
 
+// In duet mode (wordCount > 1), keep track of which words have been solved. When a
+// particular word has all letters marked green, we flag it here so that its
+// input row is disabled on subsequent attempts. This array is reset on each
+// new game based on the current wordCount. Index corresponds to the
+// wordIndex (0-based) in the duet layout.
+let solvedWords = [];
+
 
 // Variáveis globais para elementos DOM
 let appRoot, board, statusEl, newGameBtn, overlay, correctWordEl, playAgainBtn, toast, confettiCanvas, ctx;
@@ -225,6 +232,10 @@ async function newGame() {
     currentCol = 0;
     secretRevealed = false;
     muskiActivated = false;
+
+    // Reset solvedWords for duet mode. Each index corresponds to a word in
+    // duplet/multi mode. Initially, no words are solved.
+    solvedWords = new Array(wordCount).fill(false);
     
     console.log('New game created:', data);
   } catch (error) {
@@ -279,24 +290,53 @@ async function newGame() {
 }
 
 function getRowInputs(rowIndex) {
+  // Returns the set of input elements for a given attempt row. In single
+  // mode this simply returns the 5 inputs of that row. In duet/multi
+  // mode we return the inputs of the first unsolved word so that focus
+  // navigation highlights the appropriate active row rather than a
+  // solved one. If all words are solved (which should only occur
+  // immediately before game end), we return an empty array.
   if (!board || !board.children[rowIndex]) return [];
   if (wordCount === 1) {
     return Array.from(board.children[rowIndex].querySelectorAll('input'));
   }
   const block = board.children[rowIndex];
-  const firstRow = block.querySelector('.row');
-  return firstRow ? Array.from(firstRow.querySelectorAll('input')) : [];
+  const rows = block.querySelectorAll('.row');
+  // Find the first unsolved row by checking solvedWords; if none,
+  // fall back to the first row. This ensures that when the first
+  // row has already been solved, keyboard navigation and focus are
+  // anchored on an unsolved row.
+  for (let i = 0; i < rows.length; i++) {
+    if (!solvedWords[i]) {
+      return Array.from(rows[i].querySelectorAll('input'));
+    }
+  }
+  // Fallback: return empty
+  return [];
 }
 
 function onInput(r, c, input) {
   input.value = input.value.toUpperCase().replace(/[^A-ZÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ]/g, '');
   
-  // Mirror typing in duet mode
+  // Mirror typing in duet/multi mode. We want to mirror the current
+  // character to all other unsolved words on the same attempt. Rather
+  // than always mirroring from the first row, determine the wordIndex
+  // for the current input (via its parent .row dataset). Only mirror
+  // to other rows that are not solved.
   if (wordCount > 1 && r === attempts) {
+    // Determine which word index this input belongs to.
+    let parentRowEl = input.closest('.row');
+    let currentWordIndex = 0;
+    if (parentRowEl && parentRowEl.dataset && parentRowEl.dataset.wordIndex) {
+      currentWordIndex = parseInt(parentRowEl.dataset.wordIndex, 10) || 0;
+    }
     const block = board.children[r];
     const rows = block.querySelectorAll('.row');
     rows.forEach((rowEl, idx) => {
-      if (idx === 0) return; // Skip the first row (the one being typed in)
+      // Skip the row where the user is typing.
+      if (idx === currentWordIndex) return;
+      // Skip rows that have already been solved.
+      if (solvedWords[idx]) return;
       const inputs = rowEl.querySelectorAll('input');
       if (inputs[c]) {
         inputs[c].value = input.value;
@@ -328,12 +368,20 @@ function onKeyDown(e, r, c, input) {
   if (e.key === 'Backspace') {
     if (input.value) {
       input.value = '';
-      // Mirror backspace in duet mode
+      // Mirror backspace in duet/multi mode. Clear the corresponding
+      // character on all other unsolved rows in this attempt except
+      // the current row being typed on.
       if (wordCount > 1 && r === attempts) {
+        let parentRowEl = input.closest('.row');
+        let currentWordIndex = 0;
+        if (parentRowEl && parentRowEl.dataset && parentRowEl.dataset.wordIndex) {
+          currentWordIndex = parseInt(parentRowEl.dataset.wordIndex, 10) || 0;
+        }
         const block = board.children[r];
         const rows = block.querySelectorAll('.row');
         rows.forEach((rowEl, idx) => {
-          if (idx === 0) return; // Skip the first row
+          if (idx === currentWordIndex) return;
+          if (solvedWords[idx]) return;
           const inputs = rowEl.querySelectorAll('input');
           if (inputs[c]) {
             inputs[c].value = '';
@@ -366,12 +414,18 @@ function onKeyDown(e, r, c, input) {
     // Substitui a letra atual e avança
     e.preventDefault();
     input.value = e.key.toUpperCase();
-    // Mirror typing in duet mode
+    // Mirror typing in duet/multi mode
     if (wordCount > 1 && r === attempts) {
+      let parentRowEl = input.closest('.row');
+      let currentWordIndex = 0;
+      if (parentRowEl && parentRowEl.dataset && parentRowEl.dataset.wordIndex) {
+        currentWordIndex = parseInt(parentRowEl.dataset.wordIndex, 10) || 0;
+      }
       const block = board.children[r];
       const rows = block.querySelectorAll('.row');
       rows.forEach((rowEl, idx) => {
-        if (idx === 0) return; // Skip the first row
+        if (idx === currentWordIndex) return;
+        if (solvedWords[idx]) return;
         const inputs = rowEl.querySelectorAll('input');
         if (inputs[c]) {
           inputs[c].value = e.key.toUpperCase();
@@ -396,12 +450,21 @@ function focusCell(r, c) {
     if (cell) cell.classList.toggle('active', idx === c);
   });
   if (rowInputs[c]) rowInputs[c].focus();
-  // also mirror active highlight on duet secondary rows of the same attempt
+  // also mirror active highlight on duet/multi secondary rows of the same attempt
   if (wordCount > 1 && board && board.children[r]) {
     const block = board.children[r];
     const rows = block.querySelectorAll('.row');
     rows.forEach((rowEl, idxRow) => {
-      if (idxRow === 0) return; // first row already handled
+      // Skip the row that provided rowInputs; getRowInputs will anchor
+      // highlighting on the first unsolved row. We only highlight other
+      // unsolved rows to keep the UI synchronized across active words.
+      // Determine which row is the primary row: the first unsolved row.
+      let primaryIndex = 0;
+      for (let i = 0; i < rows.length; i++) {
+        if (!solvedWords[i]) { primaryIndex = i; break; }
+      }
+      if (idxRow === primaryIndex) return;
+      if (solvedWords[idxRow]) return;
       const inputs = rowEl.querySelectorAll('input');
       inputs.forEach((inp, idx) => {
         const cell = inp.parentElement;
@@ -435,6 +498,16 @@ function addCellClickListeners() {
     cell.addEventListener('click', () => {
       // Só permitir clique na linha ativa
       if (row === attempts) {
+        // In duet/multi mode, prevent focusing on a solved word's row
+        if (wordCount > 1) {
+          const parentRowEl = cell.closest('.row');
+          if (parentRowEl && parentRowEl.dataset && parentRowEl.dataset.wordIndex) {
+            const wi = parseInt(parentRowEl.dataset.wordIndex, 10) || 0;
+            if (solvedWords[wi]) {
+              return; // ignore clicks on solved side
+            }
+          }
+        }
         focusCell(row, col);
       }
     });
@@ -734,7 +807,7 @@ async function sendGuess(guess) {
     shakeScreen(); // Tremor para erro do servidor
     return; 
   }
-
+  
   if (wordCount === 1) {
     const row = board.children[attempts];
     await revealRowWithAnimation(row, data.feedback);
@@ -748,8 +821,17 @@ async function sendGuess(guess) {
       return revealRowWithAnimation(rowEl, fb);
     }));
     updateKeyboardFromFeedbackMulti(data.feedback || []);
+    // In duet/multi mode, determine which words are fully solved (all greens).
+    if (Array.isArray(data.feedback)) {
+      data.feedback.forEach((fb, wi) => {
+        if (solvedWords[wi]) return;
+        if (Array.isArray(fb) && fb.length === 5 && fb.every(item => item.status === 'green')) {
+          solvedWords[wi] = true;
+        }
+      });
+    }
   }
-
+  
   attempts = data.attempts;
   if (data.won) {
     setStatus(currentLang === 'en' ? 'Congratulations!' : 'Parabéns!');
@@ -789,12 +871,35 @@ async function revealRowWithAnimation(row, feedback) {
 }
 
 function enableNextRow() {
-  const nextRowInputs = getRowInputs(attempts);
-  nextRowInputs.forEach((inp, idx) => { 
-    inp.disabled = false; 
-    inp.tabIndex = idx + 1; 
-    inp.value = ''; 
-  });
+  // Enable the inputs for the next attempt row. In single mode,
+  // simply enable all inputs. In duet/multi mode, enable only the
+  // unsolved rows and disable those that have been solved. Also clear
+  // values for new attempt.
+  if (wordCount > 1 && board && board.children[attempts]) {
+    const block = board.children[attempts];
+    const rows = block.querySelectorAll('.row');
+    rows.forEach((rowEl, idxRow) => {
+      const inputs = rowEl.querySelectorAll('input');
+      inputs.forEach((inp, idx) => {
+        if (solvedWords[idxRow]) {
+          // disable solved rows so user cannot type here
+          inp.disabled = true;
+          inp.tabIndex = -1;
+        } else {
+          inp.disabled = false;
+          inp.tabIndex = idx + 1;
+          inp.value = '';
+        }
+      });
+    });
+  } else {
+    const nextRowInputs = getRowInputs(attempts);
+    nextRowInputs.forEach((inp, idx) => { 
+      inp.disabled = false; 
+      inp.tabIndex = idx + 1; 
+      inp.value = ''; 
+    });
+  }
   focusCell(attempts, 0);
 }
 
@@ -866,7 +971,6 @@ function launchConfetti(color = null) {
     rot: Math.random() * Math.PI,
     vr: -0.1 + Math.random() * 0.2,
   }));
-
   function frame() {
     ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
     particles.forEach(p => {
@@ -1030,7 +1134,7 @@ function initEventListeners() {
   }
   
   console.log('Event listeners inicializados');
-
+  
   // Top menu events
   if (menuClassicBtn) {
     menuClassicBtn.addEventListener('click', () => {
@@ -1680,29 +1784,27 @@ function updateKeyboardFromFeedback(feedback) {
 }
 
 function updateKeyboardFromFeedbackMulti(feedbacks) {
-  const precedence = { green: 3, yellow: 2, gray: 1 };
-  const best = {};
+  // Atualizar diretamente keyStatuses com precedência: green > yellow > gray
+  const precedence = { gray: 1, yellow: 2, green: 3 };
   feedbacks.forEach(fb => {
     (fb || []).forEach(item => {
       const l = item.letter;
       const s = item.status;
-      const prev = best[l] || 'gray';
-      if (precedence[s] > precedence[prev]) best[l] = s;
+      const prev = keyStatuses[l];
+      // Se já está verde, não downgrada
+      if (prev === 'green') return;
+      if (!prev || precedence[s] > precedence[prev]) {
+        keyStatuses[l] = s;
+      }
     });
-  });
-  Object.entries(best).forEach(([l, s]) => {
-    const prev = keyStatuses[l];
-    if (prev === 'green') return; // keep green
-    keyStatuses[l] = s;
   });
   renderKeyboard();
 }
 
-
 function activateDivineMode() {
   // Marca que o segredo foi ativado
   secretRevealed = true;
-
+  
   // 1. Alterar título H1
   const titleEl = document.querySelector('h1');
   if (titleEl) {
@@ -1711,24 +1813,24 @@ function activateDivineMode() {
     titleEl.style.color = 'gold';
     titleEl.style.textShadow = '0 0 10px rgb(3, 146, 212), 0 0 20px #fff8b0, 0 0 30px #ffe680';
   }
-
+  
   // 2. Fundo da página com animação
   document.body.style.background = 'linear-gradient(135deg, #fff7d1, #ffd700, #ffe680, #fffde7)';
   document.body.style.transition = 'background 1s ease';
-
+  
   // 3. Alterar status
   const statusText = currentLang === 'en' ? '🌟 You have ascended, RIANN!' : '🌟 Você ascendeu, RIANN!';
   setStatus(statusText);
-
+  
   // 4. Bordas douradas no tabuleiro e teclado
   board.style.border = '2px solid gold';
   keyboardEl.style.border = '2px solid gold';
   board.style.transition = 'border 1s ease';
   keyboardEl.style.transition = 'border 1s ease';
-
+  
   // 5. Partículas douradas
   launchDivineParticles();
-
+  
   // 6. Confete dourado especial
   launchConfetti('#ffd700'); // aproveitando sua função de confete
 }
@@ -1747,7 +1849,7 @@ function launchDivineParticles() {
   const ctx = canvas.getContext('2d');
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-
+  
   const particles = Array.from({ length: 150 }).map(() => ({
     x: Math.random() * canvas.width,
     y: Math.random() * canvas.height,
@@ -1756,7 +1858,7 @@ function launchDivineParticles() {
     vy: -2 + Math.random() * 0.5,
     alpha: Math.random(),
   }));
-
+  
   function animate() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     particles.forEach(p => {
@@ -1776,11 +1878,7 @@ function launchDivineParticles() {
     requestAnimationFrame(animate);
   }
   animate();
-
+  
   // Remove o canvas depois de 12s
   setTimeout(() => canvas.remove(), 12000);
 }
-
-
-
-

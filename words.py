@@ -43,7 +43,18 @@ words = [
     "trono", "vento", "tocar", "usado", "unido",
     "urgir", "vagar", "velho", "veloz", "viver",
     "xisto", "zebra", "zarpa", "zumbo", "zanga",
-    "otima", "pardo", "rolar", "temer", "mimar"
+    "otima", "pardo", "rolar", "temer", "mimar",
+    # Palavras adicionadas (5 letras, sem acento; verbos no infinitivo quando aplicável)
+    "sagaz", "amago", "termo", "negro", "exito", "mexer", "etica", "algoz", "plena", "tenue",
+    "mutua", "sobre", "aquem", "secao", "poder", "vigor", "sutil", "porem", "ideia", "sanar",
+    "audaz", "inato", "desde", "muito", "justo", "sonho", "torpe", "razao", "icone", "egide",
+    "etnia", "futil", "haver", "lapso", "entao", "expor", "bocal", "seara", "habil", "saber",
+    "mutuo", "graca", "xibiu", "obice", "avido", "ardil", "pesar", "dever", "causa", "tenaz",
+    "brado", "paria", "crivo", "temor", "coser", "genro", "comum", "apice", "posse", "prole",
+    "animo", "assaz", "ceder", "corja", "pauta", "fugaz", "ansia", "culto", "atroz", "digno",
+    "vulgo", "vicio", "gleba", "saude", "criar", "cozer", "todos", "reves", "pudor", "dogma",
+    "denso", "nenem", "louco", "atras", "regra", "ordem", "limbo", "pedir", "clava", "feliz",
+    "impor", "usura", "banal", "juizo", "levar", "olhar", "tomar", "visao", "genio", "ouvir"
 ]
 # Lista EN fácil (5 letras, vocabulário simples)
 english_words_easy = [
@@ -74,7 +85,18 @@ english_words_easy = [
     "toxic", "motel", "angry", "tired", "quiet",
     "ready", "sunny", "recap", "proof", "windy",
     "north", "south", "rogue", "gross", "waste",
-    "ocean", "world", "earth", "space", "witch"
+    "ocean", "world", "earth", "space", "witch",
+    # Added 100 new English words (5 letters, base form if verb)
+    "hello", "peace", "magic", "brain", "video", "check", "words", "lines", "piece", "shape",
+    "share", "thing", "sound", "logic", "quick", "break", "crack", "place", "write", "speak",
+    "beard", "chase", "cross", "taste", "flare", "split", "study", "brave", "loose", "tight",
+    "grace", "grind", "spice", "cider", "cabin", "camel", "cater", "crown", "draft", "final",
+    "focus", "force", "front", "giant", "glove", "grain", "group", "guide", "guest", "human",
+    "image", "judge", "month", "never", "night", "noise", "point", "press", "raise", "reach",
+    "reply", "score", "serve", "short", "small", "stage", "teach", "thank", "total", "truth",
+    "value", "voice", "whole", "young", "after", "other", "which", "their", "there", "first",
+    "would", "these", "click", "price", "state", "email", "items", "hotel", "store", "terms",
+    "right", "local", "forum", "based", "index", "being", "women", "pages", "found", "photo"
 ]
 
 

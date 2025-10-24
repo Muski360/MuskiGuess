@@ -152,7 +152,7 @@ button:hover { filter: brightness(1.1); }
 .row-block { display: grid; grid-template-columns: 1fr; gap: 8px; }
 .row-block.duet { 
   display: flex; 
-  gap: 32px; 
+  gap: 6px; 
   background: transparent;
   border: none;
   padding: 0;
