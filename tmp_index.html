@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8" />
@@ -16,9 +16,9 @@
 <body>
     <div class="app" id="appRoot">
         <nav class="mode-menu" aria-label="Game modes">
-          <button id="menuClassic" class="menu-item active" data-mode="single">Clássico</button>
+          <button id="menuClassic" class="menu-item active" data-mode="single">ClÃ¡ssico</button>
           <button id="menuDuplet" class="menu-item" data-mode="duet">Dupleto</button>
-          <button id="menuQuaplet" class="menu-item" data-mode="quaplet">Quapleto</button>
+          <button id="menuQuaplet" class="menu-item disabled" disabled>Quapleto</button>
           <button id="menuMultiplayer" class="menu-item disabled" disabled>Multiplayer</button>
         </nav>
         <div class="logo-container">
@@ -50,12 +50,12 @@
       </div>
     </div>
 
-    <div id="toast" class="toast hidden">Parabéns! Você acertou!</div>
+    <div id="toast" class="toast hidden">ParabÃ©ns! VocÃª acertou!</div>
     <canvas id="confettiCanvas" class="confetti hidden"></canvas>
 
     <div id="winOverlay" class="overlay hidden">
       <div class="modal">
-        <h2>Você acertou!</h2>
+        <h2>VocÃª acertou!</h2>
         <p>Acertou em <span id="winAttempts"></span> tentativas.</p>
         <div class="modal-actions">
           <button id="winPlayAgainBtn">Jogar novamente</button>
@@ -65,11 +65,11 @@
 
     <div id="langOverlay" class="overlay">
       <div class="modal">
-        <h2> 🌐 Escolha o idioma</h2>
+        <h2> ðŸŒ Escolha o idioma</h2>
         <div class="lang-grid">
           <button id="langPt" class="lang-btn">
             <img class="flag-img" src="static/images/brazil_flag.jpg" alt="Brasil" />
-            Português
+            PortuguÃªs
           </button>
           <button id="langEn" class="lang-btn">
             <img class="flag-img" src="static/images/usa_flag.svg" alt="USA" />
@@ -79,9 +79,9 @@
       </div>
     </div>
 
-    <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme">🌙</button>
+    <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme">ðŸŒ™</button>
     
-    <!-- Novo botão de temas com sidebar -->
+    <!-- Novo botÃ£o de temas com sidebar -->
     <div class="theme-container">
       <button id="themeBrushBtn" class="theme-brush-btn" aria-label="Selecionar tema" title="Selecionar tema">
         <img id="themeBrushIcon" src="static/images/brush_white.svg" alt="Temas" />
@@ -102,28 +102,28 @@
     <button id="langWorld" class="lang-world" aria-label="Trocar linguagem" title="Trocar linguagem">
       <img class="world-icon" src="static/images/worldicon.svg" alt="Language" />
     </button>
-    <button id="infoBtn" class="info-btn" aria-label="Informações" title="Informações">?</button>
+    <button id="infoBtn" class="info-btn" aria-label="InformaÃ§Ãµes" title="InformaÃ§Ãµes">?</button>
 
     <div id="helpOverlay" class="overlay hidden">
       <div class="modal">
         <h2 id="helpTitle">Como jogar</h2>
         <div class="help-grid">
           <div class="cell example gray"><span>A</span></div>
-          <div class="desc" id="helpGray">A letra não existe na palavra.</div>
+          <div class="desc" id="helpGray">A letra nÃ£o existe na palavra.</div>
           <div class="cell example yellow"><span>B</span></div>
-          <div class="desc" id="helpYellow">A letra existe mas em outra posição.</div>
+          <div class="desc" id="helpYellow">A letra existe mas em outra posiÃ§Ã£o.</div>
           <div class="cell example green"><span>C</span></div>
-          <div class="desc" id="helpGreen">A letra está na posição correta.</div>
+          <div class="desc" id="helpGreen">A letra estÃ¡ na posiÃ§Ã£o correta.</div>
         </div>
-        <p id="helpTries" class="help-tries">Você tem 6 tentativas para adivinhar a palavra de 5 letras.</p>
+        <p id="helpTries" class="help-tries">VocÃª tem 6 tentativas para adivinhar a palavra de 5 letras.</p>
         <div class="secrets">
           <button id="secretsBtn" class="secondary"></button>
           <div id="secretsContent">
             <h3 id="secretsSectionTitle">Segredos Especiais</h3>
-            <p id="secretsSectionText">Digite estas palavras especiais para ativar poderes únicos:</p>
+            <p id="secretsSectionText">Digite estas palavras especiais para ativar poderes Ãºnicos:</p>
             <div class="secret-item">
               <h4 id="secretMuskiTitle">MUSKI</h4>
-              <p id="secretMuskiText">Revela uma letra aleatória que ainda não foi descoberta. Não consome tentativa.</p>
+              <p id="secretMuskiText">Revela uma letra aleatÃ³ria que ainda nÃ£o foi descoberta. NÃ£o consome tentativa.</p>
             </div>
             <div class="secret-item">
               <h4 id="secretBillyTitle">BILLY</h4>
@@ -141,7 +141,7 @@
       <div class="modal">
         <h2 id="infoTitle">Sobre o Jogo</h2>
         <div class="info-content">
-          <p id="infoText">Criado por Muski360, este jogo é uma versão única inspirada no Termo e no Wordle, feito por IA.</p>
+          <p id="infoText">Criado por Muski360, este jogo Ã© uma versÃ£o Ãºnica inspirada no Termo e no Wordle, feito por IA.</p>
           <div class="github-link">
             <a href="https://github.com/Muski360/MuskiGuess" target="_blank" rel="noopener noreferrer" class="github-btn">
               <svg class="github-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -160,4 +160,6 @@
     <script src="/static/main.js"></script>
 </body>
 </html>
+
+
 

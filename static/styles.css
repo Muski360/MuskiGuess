@@ -23,6 +23,14 @@
   transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
 }
 
+/* Improve touch experience and avoid accidental text selection */
+.cell, .key, .keyboard, .row-block, .row, button {
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Micro feedback ao digitar: pulinho rápido */
 @keyframes cellBump {
   0% { transform: scale(1); }
@@ -41,7 +49,7 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 .app {
-  max-width: 680px;
+  max-width: 1100px;
   margin: 0 auto;
   padding: 24px 16px 48px;
 }
@@ -91,6 +99,7 @@ h1 {
 .logo-image {
   max-width: 120px;
   height: auto;
+  object-fit: contain;
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
   transition: all 0.3s ease;
 }
@@ -110,9 +119,19 @@ h1 {
 }
 .controls {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 16px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.04));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+  width: min(520px, 100%);
 }
 .mode-switch { margin-left: auto; display: flex; gap: 8px; }
 .mode-btn {
@@ -137,7 +156,7 @@ button {
 }
 button:hover { filter: brightness(1.1); }
 
-#status { color: var(--muted); font-size: 14px; }
+#status { color: var(--muted); font-size: 14px; text-align: center; width: 100%; }
 
 .board {
   display: grid;
@@ -148,9 +167,28 @@ button:hover { filter: brightness(1.1); }
   padding: 12px;
   margin: 16px 0 12px;
   min-height: 380px;
+  justify-items: stretch;
+}
+
+/* Classic mode: balanced, centered square grid */
+.board.single {
+  max-width: 440px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 16px;
+}
+.board.single .row {
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+.board.single .cell {
+  height: auto; /* override default height */
+  aspect-ratio: 1 / 1; /* perfect squares */
+  font-size: clamp(18px, 4.2vw, 28px);
 }
 .row-block { display: grid; grid-template-columns: 1fr; gap: 8px; }
-.row-block.duet { 
+.row-block.duet, .row-block.quaplet { 
   display: flex; 
   gap: 6px; 
   background: transparent;
@@ -158,8 +196,9 @@ button:hover { filter: brightness(1.1); }
   padding: 0;
   margin: 0;
   justify-content: center;
+  align-items: stretch;
 }
-.row-block.duet .row { 
+.row-block.duet .row, .row-block.quaplet .row { 
   background: rgba(255,255,255,0.02);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -170,6 +209,20 @@ button:hover { filter: brightness(1.1); }
   min-height: 54px;
   flex: 1;
   max-width: 300px;
+}
+/* Tweak sizes for four boards so they fit side-by-side on wide screens */
+.row-block.quaplet { gap: 8px; flex-wrap: nowrap; }
+.row-block.quaplet .row { max-width: 260px; }
+
+/* Tablet: show Quaplet as 2x2 grid for comfort */
+@media (max-width: 1100px) {
+  .row-block.quaplet {
+    flex-wrap: wrap;
+  }
+  .row-block.quaplet .row {
+    flex: 1 1 calc(50% - 8px);
+    max-width: none;
+  }
 }
 .app.blurred { filter: blur(3px); }
 .row {
@@ -187,6 +240,8 @@ button:hover { filter: brightness(1.1); }
   font-weight: 600;
   letter-spacing: 1px;
   background: var(--surface);
+  /* Modern depth + subtle bevel */
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.04);
   cursor: pointer; /* visual de clicável */
 }
 .cell input {
@@ -720,11 +775,11 @@ button {
     gap: 3px;
     margin: 16px auto;
   }
-  .row-block.duet { 
+  .row-block.duet, .row-block.quaplet { 
     flex-direction: column; 
     gap: 12px; 
   }
-  .row-block.duet .row {
+  .row-block.duet .row, .row-block.quaplet .row {
     max-width: none;
   }
   
@@ -750,6 +805,7 @@ button {
     gap: 5px;
     margin-top: 16px;
     max-width: 100%;
+    width: 100%;
   }
   
   .key-row {
@@ -758,10 +814,11 @@ button {
   }
   
   .key {
-    min-width: 32px;
+    min-width: 36px;
     height: 42px;
     font-size: 14px;
     border-radius: 6px;
+    flex: 0 1 auto;
   }
   
   .key.wide {
@@ -982,6 +1039,3 @@ button {
     max-width: calc(100vw - 32px);
   }
 }
-
-
-

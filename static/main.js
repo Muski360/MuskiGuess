@@ -5,7 +5,7 @@ let gameId = null;
 let attempts = 0;
 let maxAttempts = 6;
 let wordCount = 1; // 1 = single, >=2 = duet/multi
-let gameMode = 'single'; // 'single' | 'duet'
+let gameMode = 'single'; // 'single' | 'duet' | 'quaplet'
 let currentCol = 0;
 let secretRevealed = false;
 let currentLang = 'pt';
@@ -143,6 +143,14 @@ function renderBoard() {
     return;
   }
   board.innerHTML = '';
+  // Toggle board mode classes for styling (single vs multi)
+  if (wordCount === 1) {
+    board.classList.add('single');
+    board.classList.remove('multi');
+  } else {
+    board.classList.add('multi');
+    board.classList.remove('single');
+  }
   for (let r = 0; r < maxAttempts; r++) {
     if (wordCount === 1) {
       const row = document.createElement('div');
@@ -163,7 +171,7 @@ function renderBoard() {
       board.appendChild(row);
     } else {
       const block = document.createElement('div');
-      block.className = 'row-block duet';
+      block.className = (wordCount === 4) ? 'row-block quaplet' : 'row-block duet';
       for (let wi = 0; wi < wordCount; wi++) {
         const row = document.createElement('div');
         row.className = 'row';
@@ -214,6 +222,10 @@ async function newGame() {
       payload.mode = 'duet';
       payload.wordCount = 2;
       payload.maxAttempts = 7;
+    } else if (gameMode === 'quaplet') {
+      payload.mode = 'quaplet';
+      payload.wordCount = 4;
+      payload.maxAttempts = 9;
     } else {
       payload.mode = 'single';
       payload.wordCount = 1;
@@ -277,7 +289,10 @@ async function newGame() {
     renderKeyboard();
   }
   renderBoard();
-  setStatus(currentLang === 'en' ? 'New game started!' : 'Novo jogo iniciado!');
+  // Show initial attempt status instead of a generic message
+  setStatus(currentLang === 'en' 
+    ? `Attempt 1 of ${maxAttempts}` 
+    : `Tentativa 1 de ${maxAttempts}`);
   hideOverlay();
   if (toast) toast.classList.add('hidden');
   if (confettiCanvas) confettiCanvas.classList.add('hidden');
@@ -761,6 +776,13 @@ async function revealSecretTitle() {
 }
 
 async function submitCurrentRow() {
+  // Debounce Enter to avoid double submission (400ms window)
+  const nowTS = Date.now();
+  if (typeof window.__lastSubmitAt !== 'number') {
+    window.__lastSubmitAt = 0;
+  }
+  if (nowTS - window.__lastSubmitAt < 400) return;
+  window.__lastSubmitAt = nowTS;
   if (isRevealing || isSubmitting) return;
   if (!gameId) { setStatus('Clique em Novo jogo'); return; }
   const guess = readGuessFromRow(attempts);
@@ -917,14 +939,17 @@ function showWinOverlay(attemptCount) {
   if (winAttemptsEl) winAttemptsEl.textContent = attemptCount;
   if (winOverlay) winOverlay.classList.remove('hidden');
   if (appRoot) appRoot.classList.add('blurred');
-  // Mensagem de vitória dinâmica + traduzida no toast
+  // Victory toast, scaled for different maxAttempts (single:6, duet:7, quaplet:9)
   const ptMap = {
     1: 'Fenomenal! Meus parabéns!',
     2: 'Excelente! Meus parabéns!',
     3: 'Espetacular! Meus parabéns!',
     4: 'Muito bom! Meus parabéns!',
     5: 'Boa! Meus parabéns!',
-    6: 'Ufa! Meus parabéns!'
+    6: 'Ufa! Meus parabéns!',
+    7: 'Na trave, mas valeu!',
+    8: 'Persistência brilhante! Parabéns!',
+    9: 'No último suspiro! Parabéns!'
   };
   const enMap = {
     1: 'Phenomenal! Congratulations!',
@@ -932,7 +957,10 @@ function showWinOverlay(attemptCount) {
     3: 'Spectacular! Congratulations!',
     4: 'Very good! Congratulations!',
     5: 'Nice! Congratulations!',
-    6: 'Phew! Congratulations!'
+    6: 'Phew! Congratulations!',
+    7: 'Close call! Well done!',
+    8: 'Brilliant perseverance! Congrats!',
+    9: 'Down to the wire! Congrats!'
   };
   const msg = (currentLang === 'en' ? enMap : ptMap)[attemptCount] || (currentLang === 'en' ? 'Congratulations!' : 'Meus parabéns!');
   showToast(msg);
@@ -1140,6 +1168,7 @@ function initEventListeners() {
     menuClassicBtn.addEventListener('click', () => {
       gameMode = 'single';
       if (menuDupletBtn) menuDupletBtn.classList.remove('active');
+      if (menuQuapletBtn) menuQuapletBtn.classList.remove('active');
       menuClassicBtn.classList.add('active');
       newGame();
     });
@@ -1148,7 +1177,17 @@ function initEventListeners() {
     menuDupletBtn.addEventListener('click', () => {
       gameMode = 'duet';
       if (menuClassicBtn) menuClassicBtn.classList.remove('active');
+      if (menuQuapletBtn) menuQuapletBtn.classList.remove('active');
       menuDupletBtn.classList.add('active');
+      newGame();
+    });
+  }
+  if (menuQuapletBtn) {
+    menuQuapletBtn.addEventListener('click', () => {
+      gameMode = 'quaplet';
+      if (menuClassicBtn) menuClassicBtn.classList.remove('active');
+      if (menuDupletBtn) menuDupletBtn.classList.remove('active');
+      menuQuapletBtn.classList.add('active');
       newGame();
     });
   }
@@ -1619,7 +1658,11 @@ function updateHelpTexts() {
     helpGray.textContent = 'The letter is not in the word.';
     helpYellow.textContent = 'The letter is in the word but wrong position.';
     helpGreen.textContent = 'The letter is in the correct position.';
-    helpTries.textContent = gameMode === 'duet' ? 'You have 7 tries to solve both words.' : 'You have 6 tries to guess the 5-letter word.';
+    helpTries.textContent = (
+      gameMode === 'quaplet' ? 'You have 9 tries to solve all four words.' :
+      gameMode === 'duet' ? 'You have 7 tries to solve both words.' :
+      'You have 6 tries to guess the 5-letter word.'
+    );
     if (menuClassicBtn) menuClassicBtn.textContent = 'Classic';
     if (menuDupletBtn) menuDupletBtn.textContent = 'Duplet';
     if (menuQuapletBtn) menuQuapletBtn.textContent = 'Quaplet';
@@ -1637,7 +1680,11 @@ function updateHelpTexts() {
     helpGray.textContent = 'A letra não existe na palavra.';
     helpYellow.textContent = 'A letra existe na palavra em outra posição.';
     helpGreen.textContent = 'A letra está na posição correta.';
-    helpTries.textContent = gameMode === 'duet' ? 'Você tem 7 tentativas para resolver as duas palavras.' : 'Você tem 6 tentativas para adivinhar a palavra de 5 letras.';
+    helpTries.textContent = (
+      gameMode === 'quaplet' ? 'Você tem 9 tentativas para resolver as quatro palavras.' :
+      gameMode === 'duet' ? 'Você tem 7 tentativas para resolver as duas palavras.' :
+      'Você tem 6 tentativas para adivinhar a palavra de 5 letras.'
+    );
     if (menuClassicBtn) menuClassicBtn.textContent = 'Clássico';
     if (menuDupletBtn) menuDupletBtn.textContent = 'Dupleto';
     if (menuQuapletBtn) menuQuapletBtn.textContent = 'Quapleto';
