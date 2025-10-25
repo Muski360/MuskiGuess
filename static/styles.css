@@ -611,6 +611,15 @@ button {
   transform: scale(1.05);
 }
 
+.lang-world:disabled,
+.info-btn:disabled,
+.lang-world.side-btn-disabled,
+.info-btn.side-btn-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* Help modal */
 .help-grid {
   display: grid;

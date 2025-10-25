@@ -32,14 +32,15 @@ let solvedWords = [];
 
 // Variáveis globais para elementos DOM
 let appRoot, board, statusEl, newGameBtn, overlay, correctWordEl, playAgainBtn, toast, confettiCanvas, ctx;
-let winOverlay, winAttemptsEl, winPlayAgainBtn, langOverlay, langPtBtn, langEnBtn, themeToggle;
+let langOverlay, langPtBtn, langEnBtn, themeToggle;
 let helpBtn, helpOverlay, helpCloseBtn, helpTitle, helpGray, helpYellow, helpGreen, helpTries;
 let secretsBtn, secretsContent, secretsSectionTitle, secretsSectionText, secretMuskiTitle, secretMuskiText, secretBillyTitle, secretBillyText;
 let newGameBtnEl, hintEl, gameOverTitleEl, gameOverTextEl, playAgainBtnEl, toastEl;
-let winTitleEl, winTextPrefixEl, winPlayAgainBtnEl, keyboardEl, langWorldBtn;
+let keyboardEl, langWorldBtn;
 let menuClassicBtn, menuDupletBtn, menuQuapletBtn, menuMultiplayerBtn;
 let infoBtn, infoOverlay, infoCloseBtn, infoTitle, infoText, githubText;
 let logoImage;
+let activeSideOverlay = null;
 
 // Função para inicializar elementos DOM
 function initDOMElements() {
@@ -56,9 +57,6 @@ function initDOMElements() {
   toast = document.getElementById('toast');
   confettiCanvas = document.getElementById('confettiCanvas');
   ctx = confettiCanvas ? confettiCanvas.getContext('2d') : null;
-  winOverlay = document.getElementById('winOverlay');
-  winAttemptsEl = document.getElementById('winAttempts');
-  winPlayAgainBtn = document.getElementById('winPlayAgainBtn');
   langOverlay = document.getElementById('langOverlay');
   langPtBtn = document.getElementById('langPt');
   langEnBtn = document.getElementById('langEn');
@@ -86,9 +84,6 @@ function initDOMElements() {
   gameOverTextEl = document.querySelector('#overlay .modal p');
   playAgainBtnEl = document.getElementById('playAgainBtn');
   toastEl = document.getElementById('toast');
-  winTitleEl = document.querySelector('#winOverlay .modal h2');
-  winTextPrefixEl = document.querySelector('#winOverlay .modal p');
-  winPlayAgainBtnEl = document.getElementById('winPlayAgainBtn');
   keyboardEl = document.getElementById('keyboard');
   langWorldBtn = document.getElementById('langWorld');
   menuClassicBtn = document.getElementById('menuClassic');
@@ -101,6 +96,83 @@ function initDOMElements() {
   infoTitle = document.getElementById('infoTitle');
   infoText = document.getElementById('infoText');
   githubText = document.getElementById('githubText');
+}
+
+function setButtonDisabled(button, disabled) {
+  if (!button) return;
+  button.disabled = disabled;
+  button.classList.toggle('side-btn-disabled', disabled);
+  if (disabled) {
+    button.setAttribute('aria-disabled', 'true');
+  } else {
+    button.removeAttribute('aria-disabled');
+  }
+}
+
+function anyOverlayActive() {
+  const overlays = [overlay, helpOverlay, infoOverlay, langOverlay];
+  return overlays.some(el => el && !el.classList.contains('hidden'));
+}
+
+function updateAppBlurState(forceBlur = false) {
+  if (!appRoot) return;
+  if (forceBlur || anyOverlayActive()) {
+    appRoot.classList.add('blurred');
+  } else {
+    appRoot.classList.remove('blurred');
+  }
+}
+
+function showSideOverlay(type, options = {}) {
+  const { skipBlur = false } = options;
+  if (type === 'lang' && langOverlay) {
+    langOverlay.classList.remove('hidden');
+    setButtonDisabled(infoBtn, true);
+    activeSideOverlay = 'lang';
+  } else if (type === 'info' && infoOverlay) {
+    infoOverlay.classList.remove('hidden');
+    setButtonDisabled(langWorldBtn, true);
+    activeSideOverlay = 'info';
+  } else {
+    return;
+  }
+  if (!skipBlur) {
+    updateAppBlurState(true);
+  }
+}
+
+function hideSideOverlay(type) {
+  if (type === 'lang' && langOverlay) {
+    langOverlay.classList.add('hidden');
+  } else if (type === 'info' && infoOverlay) {
+    infoOverlay.classList.add('hidden');
+  } else {
+    return;
+  }
+  if (activeSideOverlay === type) {
+    activeSideOverlay = null;
+    setButtonDisabled(langWorldBtn, false);
+    setButtonDisabled(infoBtn, false);
+  }
+  updateAppBlurState();
+}
+
+function toggleSideOverlay(type) {
+  if (activeSideOverlay === type) {
+    hideSideOverlay(type);
+    return;
+  }
+  if (activeSideOverlay) {
+    hideSideOverlay(activeSideOverlay);
+  }
+  showSideOverlay(type);
+}
+
+function getWinMessage(isLastAttempt = false) {
+  if (currentLang === 'en') {
+    return isLastAttempt ? 'Phew! You got it!' : 'Congratulations, you got it!';
+  }
+  return isLastAttempt ? 'Ufa! Voc\u00ea conseguiu!' : 'Parab\u00e9ns, voc\u00ea conseguiu!';
 }
 
 function resizeCanvas() {
@@ -856,9 +928,14 @@ async function sendGuess(guess) {
   
   attempts = data.attempts;
   if (data.won) {
-    setStatus(currentLang === 'en' ? 'Congratulations!' : 'Parabéns!');
+    const totalAllowed = typeof data.maxAttempts === 'number' ? data.maxAttempts : maxAttempts;
+    const isLastAttempt = typeof totalAllowed === 'number' && totalAllowed > 0
+      ? data.attempts >= totalAllowed
+      : false;
+    const winMessage = getWinMessage(isLastAttempt);
+    setStatus(winMessage);
     showWinEffects();
-    showWinOverlay(data.attempts);
+    showToast(winMessage);
   } else if (data.gameOver) {
     setStatus(currentLang === 'en' ? 'Game over!' : 'Fim de jogo!');
     const cw = data.correctWord || (Array.isArray(data.correctWords) ? data.correctWords.join(' / ') : '');
@@ -935,41 +1012,6 @@ function hideOverlay() {
   if (appRoot) appRoot.classList.remove('blurred');
 }
 
-function showWinOverlay(attemptCount) {
-  if (winAttemptsEl) winAttemptsEl.textContent = attemptCount;
-  if (winOverlay) winOverlay.classList.remove('hidden');
-  if (appRoot) appRoot.classList.add('blurred');
-  // Victory toast, scaled for different maxAttempts (single:6, duet:7, quaplet:9)
-  const ptMap = {
-    1: 'Fenomenal! Meus parabéns!',
-    2: 'Excelente! Meus parabéns!',
-    3: 'Espetacular! Meus parabéns!',
-    4: 'Muito bom! Meus parabéns!',
-    5: 'Boa! Meus parabéns!',
-    6: 'Ufa! Meus parabéns!',
-    7: 'Na trave, mas valeu!',
-    8: 'Persistência brilhante! Parabéns!',
-    9: 'No último suspiro! Parabéns!'
-  };
-  const enMap = {
-    1: 'Phenomenal! Congratulations!',
-    2: 'Excellent! Congratulations!',
-    3: 'Spectacular! Congratulations!',
-    4: 'Very good! Congratulations!',
-    5: 'Nice! Congratulations!',
-    6: 'Phew! Congratulations!',
-    7: 'Close call! Well done!',
-    8: 'Brilliant perseverance! Congrats!',
-    9: 'Down to the wire! Congrats!'
-  };
-  const msg = (currentLang === 'en' ? enMap : ptMap)[attemptCount] || (currentLang === 'en' ? 'Congratulations!' : 'Meus parabéns!');
-  showToast(msg);
-}
-function hideWinOverlay() {
-  if (winOverlay) winOverlay.classList.add('hidden');
-  if (appRoot) appRoot.classList.remove('blurred');
-}
-
 function showToast(message) {
   if (toast) {
     if (typeof message === 'string' && message.trim()) {
@@ -981,7 +1023,6 @@ function showToast(message) {
 }
 
 function showWinEffects() {
-  // mensagem será definida em showWinOverlay com base na tentativa
   launchConfetti();
 }
 
@@ -1028,8 +1069,7 @@ function chooseLang(lang) {
   
   currentLang = lang;
   if (langOverlay) {
-    langOverlay.classList.add('hidden');
-    appRoot.classList.remove('blurred');
+    hideSideOverlay('lang');
     console.log('Overlay de idioma escondido');
   }
   applyLanguage();
@@ -1056,13 +1096,6 @@ function initEventListeners() {
     console.log('Botão jogar novamente configurado');
   } else {
     console.log('ERRO: playAgainBtn não encontrado!');
-  }
-  
-  if (winPlayAgainBtn) {
-    winPlayAgainBtn.addEventListener('click', () => { hideWinOverlay(); newGame(); });
-    console.log('Botão jogar novamente (vitória) configurado');
-  } else {
-    console.log('ERRO: winPlayAgainBtn não encontrado!');
   }
   
   // Event listeners de idioma
@@ -1123,12 +1156,8 @@ function initEventListeners() {
   
   // Event listener do botão de idioma mundial
   if (langWorldBtn) {
-    langWorldBtn.addEventListener('click', () => { 
-      // Sempre mostrar overlay de idioma
-      if (langOverlay) {
-        langOverlay.classList.remove('hidden');
-        appRoot.classList.add('blurred');
-      }
+    langWorldBtn.addEventListener('click', () => {
+      toggleSideOverlay('lang');
     });
     console.log('Botão mundo configurado');
   } else {
@@ -1137,12 +1166,13 @@ function initEventListeners() {
   
   // Event listeners do botão de informações
   if (infoBtn) {
-    infoBtn.addEventListener('click', () => { 
-      updateInfoTexts();
-      if (infoOverlay) {
-        infoOverlay.classList.remove('hidden');
-        appRoot.classList.add('blurred');
+    infoBtn.addEventListener('click', () => {
+      if (activeSideOverlay === 'info') {
+        hideSideOverlay('info');
+        return;
       }
+      updateInfoTexts();
+      toggleSideOverlay('info');
     });
     console.log('Botão informações configurado');
   } else {
@@ -1150,11 +1180,8 @@ function initEventListeners() {
   }
   
   if (infoCloseBtn) {
-    infoCloseBtn.addEventListener('click', () => { 
-      if (infoOverlay) {
-        infoOverlay.classList.add('hidden');
-        appRoot.classList.remove('blurred');
-      }
+    infoCloseBtn.addEventListener('click', () => {
+      hideSideOverlay('info');
     });
     console.log('Botão fechar informações configurado');
   } else {
@@ -1240,7 +1267,7 @@ document.addEventListener('DOMContentLoaded', function() {
   } else {
     // Mostrar overlay de idioma apenas se não há idioma salvo
     if (langOverlay) {
-      langOverlay.classList.remove('hidden');
+      showSideOverlay('lang', { skipBlur: true });
       console.log('Overlay de idioma mostrado');
     } else {
       console.log('ERRO: langOverlay não encontrado!');
@@ -1712,32 +1739,21 @@ function applyLanguage() {
     if (newGameBtnEl) newGameBtnEl.textContent = 'New game';
     if (hintEl) hintEl.textContent = '';
     if (gameOverTitleEl) gameOverTitleEl.textContent = 'Game over';
-    if (gameOverTextEl && gameOverTextEl.childNodes[0]) gameOverTextEl.childNodes[0].textContent = 'The correct word was: ';
-    if (playAgainBtnEl) playAgainBtnEl.textContent = 'Play again';
-    if (toastEl) toastEl.textContent = 'Congrats! You got it!';
-    if (winTitleEl) winTitleEl.textContent = 'You won!';
-    // winTextPrefixEl has: 'Acertou em ' + <span id="winAttempts"></span> + ' tentativas.'
-    if (winTextPrefixEl && winTextPrefixEl.childNodes[0]) winTextPrefixEl.childNodes[0].textContent = 'Solved in ';
-    // after span stays; we replace trailing text node after span
-    if (winTextPrefixEl && winTextPrefixEl.childNodes.length > 2) {
-      winTextPrefixEl.childNodes[2].textContent = ' tries.';
+    if (gameOverTextEl && gameOverTextEl.childNodes[0]) {
+      gameOverTextEl.childNodes[0].textContent = 'The correct word was: ';
     }
-    if (winPlayAgainBtnEl) winPlayAgainBtnEl.textContent = 'Play again';
+    if (playAgainBtnEl) playAgainBtnEl.textContent = 'Play again';
+    if (toastEl) toastEl.textContent = 'Congratulations, you got it!';
     if (board) board.setAttribute('aria-label', 'Game board');
   } else {
     if (newGameBtnEl) newGameBtnEl.textContent = 'Novo jogo';
     if (hintEl) hintEl.textContent = '';
     if (gameOverTitleEl) gameOverTitleEl.textContent = 'Fim de jogo';
-    if (gameOverTextEl && gameOverTextEl.childNodes[0]) gameOverTextEl.childNodes[0].textContent = 'A palavra correta era: ';
+    if (gameOverTextEl && gameOverTextEl.childNodes[0]) {
+      gameOverTextEl.childNodes[0].textContent = 'A palavra correta era: ';
+    }
     if (playAgainBtnEl) playAgainBtnEl.textContent = 'Jogar novamente';
-    if (toastEl) toastEl.textContent = 'Parabéns! Você acertou!';
-    if (winTitleEl) winTitleEl.textContent = 'Você acertou!';
-    if (winTextPrefixEl && winTextPrefixEl.childNodes.length > 0) {
-      winTextPrefixEl.childNodes[0].textContent = 'Acertou em ';
-    }
-    if (winTextPrefixEl && winTextPrefixEl.childNodes.length > 2) {
-      winTextPrefixEl.childNodes[2].textContent = ' tentativas.';
-    }
+    if (toastEl) toastEl.textContent = 'Parabéns, você conseguiu!';
     if (board) board.setAttribute('aria-label', 'Tabuleiro do jogo');
   }
 }
