@@ -28,6 +28,7 @@ let keyStatuses = {}; // letter -> gray|yellow|green
 // new game based on the current wordCount. Index corresponds to the
 // wordIndex (0-based) in the duet layout.
 let solvedWords = [];
+let solvedWordSnapshots = [];
 
 
 // Variáveis globais para elementos DOM
@@ -320,6 +321,7 @@ async function newGame() {
     // Reset solvedWords for duet mode. Each index corresponds to a word in
     // duplet/multi mode. Initially, no words are solved.
     solvedWords = new Array(wordCount).fill(false);
+    solvedWordSnapshots = new Array(wordCount).fill(null);
     
     console.log('New game created:', data);
   } catch (error) {
@@ -602,7 +604,9 @@ function addCellClickListeners() {
 }
 
 function readGuessFromRow(r) {
-  return getRowInputs(r).map(i => (i.value || '').toLowerCase()).join('');
+  const inputs = getRowInputs(r);
+  if (!inputs || inputs.length === 0) return '';
+  return inputs.map(i => (i.value || '').toLowerCase()).join('');
 }
 
 // Função para verificar se uma palavra existe no dicionário local
@@ -857,7 +861,11 @@ async function submitCurrentRow() {
   window.__lastSubmitAt = nowTS;
   if (isRevealing || isSubmitting) return;
   if (!gameId) { setStatus('Clique em Novo jogo'); return; }
-  const guess = readGuessFromRow(attempts);
+  const activeInputs = getRowInputs(attempts);
+  if (!activeInputs || activeInputs.length === 0) {
+    return;
+  }
+  const guess = activeInputs.map(i => (i.value || '').toLowerCase()).join('');
   const upperGuess = guess.toUpperCase();
   
   // Não enviar palavras secretas
@@ -909,21 +917,34 @@ async function sendGuess(guess) {
   } else {
     const block = board.children[attempts];
     const rowsInBlock = Array.from(block.querySelectorAll('.row'));
-    // Start both row reveals concurrently
+    const previouslySolved = solvedWords.slice();
+    // Start both row reveals concurrently, skipping already-solved words
     await Promise.all(rowsInBlock.map((rowEl, wi) => {
       const fb = (data.feedback && data.feedback[wi]) || [];
+      if (previouslySolved[wi]) {
+        applySolvedSnapshotToRow(rowEl, wi, { populateLetters: false });
+        return Promise.resolve();
+      }
       return revealRowWithAnimation(rowEl, fb);
     }));
-    updateKeyboardFromFeedbackMulti(data.feedback || []);
     // In duet/multi mode, determine which words are fully solved (all greens).
     if (Array.isArray(data.feedback)) {
       data.feedback.forEach((fb, wi) => {
         if (solvedWords[wi]) return;
         if (Array.isArray(fb) && fb.length === 5 && fb.every(item => item.status === 'green')) {
           solvedWords[wi] = true;
+          solvedWordSnapshots[wi] = fb.map(item => ({ letter: item.letter, status: item.status }));
+          applySolvedSnapshotToRow(rowsInBlock[wi], wi, { populateLetters: true });
         }
       });
     }
+    const sanitizedFeedback = (data.feedback || []).map((fb, wi) => {
+      if (solvedWords[wi] && Array.isArray(solvedWordSnapshots[wi])) {
+        return solvedWordSnapshots[wi];
+      }
+      return fb || [];
+    });
+    updateKeyboardFromFeedbackMulti(sanitizedFeedback);
   }
   
   attempts = data.attempts;
@@ -969,6 +990,38 @@ async function revealRowWithAnimation(row, feedback) {
   isRevealing = false;
 }
 
+function applySolvedSnapshotToRow(rowEl, wordIndex, options = {}) {
+  if (!rowEl) return;
+  const populateLetters = options.populateLetters !== undefined ? options.populateLetters : true;
+  const snapshot = Array.isArray(solvedWordSnapshots) ? solvedWordSnapshots[wordIndex] : null;
+  const hasSnapshot = Array.isArray(snapshot);
+  const inputs = rowEl.querySelectorAll('input');
+  inputs.forEach((inp, idx) => {
+    const cell = inp.parentElement;
+    const snap = hasSnapshot ? snapshot[idx] : null;
+    inp.disabled = true;
+    inp.tabIndex = -1;
+    if (populateLetters && snap && snap.letter) {
+      inp.value = snap.letter;
+    } else if (!populateLetters) {
+      inp.value = '';
+    }
+    if (cell) {
+      cell.classList.remove('locked-cell');
+      if (populateLetters && hasSnapshot) {
+        cell.classList.remove('gray', 'yellow', 'green', 'active');
+        if (snap && snap.status) {
+          cell.classList.add(snap.status);
+        }
+      } else if (!populateLetters) {
+        cell.classList.remove('gray', 'yellow', 'green', 'active');
+      }
+      cell.classList.add('locked-cell');
+    }
+  });
+  rowEl.classList.add('solved-locked');
+}
+
 function enableNextRow() {
   // Enable the inputs for the next attempt row. In single mode,
   // simply enable all inputs. In duet/multi mode, enable only the
@@ -979,17 +1032,20 @@ function enableNextRow() {
     const rows = block.querySelectorAll('.row');
     rows.forEach((rowEl, idxRow) => {
       const inputs = rowEl.querySelectorAll('input');
-      inputs.forEach((inp, idx) => {
-        if (solvedWords[idxRow]) {
-          // disable solved rows so user cannot type here
-          inp.disabled = true;
-          inp.tabIndex = -1;
-        } else {
+      if (solvedWords[idxRow]) {
+        applySolvedSnapshotToRow(rowEl, idxRow, { populateLetters: false });
+      } else {
+        rowEl.classList.remove('solved-locked');
+        inputs.forEach((inp, idx) => {
+          const cell = inp.parentElement;
           inp.disabled = false;
           inp.tabIndex = idx + 1;
           inp.value = '';
-        }
-      });
+          if (cell) {
+            cell.classList.remove('gray', 'yellow', 'green', 'locked-cell', 'active');
+          }
+        });
+      }
     });
   } else {
     const nextRowInputs = getRowInputs(attempts);

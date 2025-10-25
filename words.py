@@ -2,7 +2,7 @@ import random
 
 words = [
     "abaco", "bosta", "monte", "monge", "abate",
-    "acima", "acido", "lacre", "porra", "afeto",
+    "acima", "acido", "lacre", "porco", "afeto",
     "agora", "ajuda", "marca", "jatos", "aluno",
     "amigo", "anexo", "mijar", "apelo", "nicho",
     "aroma", "atual", "aviao", "banco", "visto",
@@ -42,11 +42,11 @@ words = [
     "suave", "samba", "tarde", "tocha", "tarja",
     "trono", "vento", "tocar", "usado", "unido",
     "urgir", "vagar", "velho", "veloz", "viver",
-    "xisto", "zebra", "zarpa", "zumbo", "zanga",
+    "cenho", "zebra", "zarpa", "zumba", "junta",
     "otima", "pardo", "rolar", "temer", "mimar",
     # Palavras adicionadas (5 letras, sem acento; verbos no infinitivo quando aplicável)
-    "sagaz", "amago", "termo", "negro", "exito", "mexer", "etica", "algoz", "plena", "tenue",
-    "mutua", "sobre", "aquem", "secao", "poder", "vigor", "sutil", "porem", "ideia", "sanar",
+    "sagaz", "limpo", "termo", "negro", "exito", "mexer", "etica", "algoz", "plena", "tenue",
+    "mutua", "sobre", "aquem", "visar", "poder", "vigor", "sutil", "porem", "ideia", "sanar",
     "audaz", "inato", "desde", "muito", "justo", "sonho", "torpe", "razao", "icone", "egide",
     "etnia", "futil", "haver", "lapso", "entao", "expor", "bocal", "seara", "habil", "saber",
     "mutuo", "graca", "xibiu", "obice", "avido", "ardil", "pesar", "dever", "causa", "tenaz",

@@ -611,6 +611,15 @@ button {
   transform: scale(1.05);
 }
 
+.solved-locked .cell.locked-cell {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.solved-locked input {
+  pointer-events: none;
+}
+
 .lang-world:disabled,
 .info-btn:disabled,
 .lang-world.side-btn-disabled,
