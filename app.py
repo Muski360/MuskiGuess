@@ -1,13 +1,27 @@
+import os
+import random
+import string
+import time
+from uuid import uuid4
+
 from flask import Flask, jsonify, request
+from flask_socketio import SocketIO, emit, join_room, leave_room
 
 from termo import Termo
 from words import get_random_word
-import os
 
 app = Flask(__name__, static_folder="static", template_folder="static")
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 games = {}
 next_game_id = 1
+multiplayer_rooms = {}
+player_room_index = {}
+
+MAX_PLAYERS_PER_ROOM = 6
+MIN_PLAYERS_PER_ROOM = 2
+ROUND_ATTEMPTS = 6
+
 
 # Carregar palavras portuguesas
 portuguese_words = set()
@@ -37,6 +51,8 @@ except FileNotFoundError:
 except Exception as e:
     print(f"Erro ao carregar palavras inglesas: {e}")
 
+VALID_MULTIPLAYER_WORDS = portuguese_words.union(english_words)
+
 def _check_guess_statuses_for_word(word: str, guess: str):
     """Return list of {letter, status} for a single word vs guess, Wordle rules."""
     letters = [c.upper() for c in guess]
@@ -60,6 +76,585 @@ def _check_guess_statuses_for_word(word: str, guess: str):
                     break
             statuses[i] = 'yellow' if found else 'gray'
     return [{"letter": letters[i], "status": statuses[i]} for i in range(5)]
+
+
+def _generate_room_code(length: int = 5) -> str:
+    alphabet = string.ascii_uppercase + string.digits
+    while True:
+        code = ''.join(random.choice(alphabet) for _ in range(length))
+        if code not in multiplayer_rooms:
+            return code
+
+
+def _sanitize_player_name(name: str) -> str:
+    cleaned = (name or "").strip()
+    if not cleaned:
+        cleaned = "Jogador"
+    return cleaned[:20]
+
+
+def _scoreboard_snapshot(room: dict) -> list:
+    players = []
+    for sid, player in room["players"].items():
+        players.append({
+            "playerId": player["id"],
+            "name": player["name"],
+            "score": player["score"],
+            "isHost": sid == room.get("host_sid"),
+        })
+    players.sort(key=lambda item: (-item["score"], item["name"].lower()))
+    return players
+
+
+def _room_payload(room: dict) -> dict:
+    return {
+        "code": room["code"],
+        "status": room["status"],
+        "roundNumber": room.get("round_index", 0),
+        "roundsTarget": room.get("rounds_target"),
+        "roundsCompleted": room.get("standard_rounds_completed", 0),
+        "tiebreakerActive": room.get("tiebreaker_active", False),
+        "players": _scoreboard_snapshot(room),
+        "maxAttempts": room.get("max_attempts", ROUND_ATTEMPTS),
+        "canStart": room["status"] == "lobby" and len(room["players"]) >= MIN_PLAYERS_PER_ROOM,
+        "canPlayAgain": room["status"] == "finished",
+        "hostId": room.get("host_player_id"),
+        "language": room.get("lang", "pt"),
+    }
+
+
+def _broadcast_room_state(room: dict):
+    socketio.emit("room_update", _room_payload(room), to=room["code"])
+
+
+def _ensure_host(room: dict):
+    if not room["players"]:
+        room["host_sid"] = None
+        room["host_player_id"] = None
+        return
+    if room.get("host_sid") in room["players"]:
+        return
+    new_sid, new_player = min(
+        room["players"].items(),
+        key=lambda item: item[1].get("joined_at", time.time())
+    )
+    room["host_sid"] = new_sid
+    room["host_player_id"] = new_player["id"]
+    socketio.emit("host_change", {"playerId": new_player["id"]}, to=room["code"])
+
+
+def _determine_leaders(room: dict) -> list:
+    if not room["players"]:
+        return []
+    max_score = max(player["score"] for player in room["players"].values())
+    return [player for player in room["players"].values() if player["score"] == max_score]
+
+
+def _all_attempts_spent(room: dict) -> bool:
+    if not room["players"]:
+        return False
+    return all(player["attempts"] >= room["max_attempts"] for player in room["players"].values())
+
+
+def _queue_round_transition(code: str, action: str, delay: float = 3.0):
+    def _runner():
+        socketio.sleep(delay)
+        room = multiplayer_rooms.get(code)
+        if not room or room["status"] != "playing":
+            return
+        if action == "standard":
+            _start_new_round(room, is_tiebreaker=False)
+        elif action == "tiebreaker":
+            _start_new_round(room, is_tiebreaker=True)
+
+    socketio.start_background_task(_runner)
+
+
+def _start_new_round(room: dict, *, is_tiebreaker: bool = False):
+    if room["status"] != "playing":
+        return
+    if len(room["players"]) < MIN_PLAYERS_PER_ROOM:
+        _finish_match(room, cancelled=True)
+        return
+    room["round_index"] = room.get("round_index", 0) + 1
+    room["current_round_tiebreaker"] = is_tiebreaker
+    room["round_complete"] = False
+    room["round_draw"] = False
+    room["round_winner_sid"] = None
+    room["current_word"] = get_random_word(room.get("lang", "pt"))
+    room["round_started_at"] = time.time()
+    for player in room["players"].values():
+        player["attempts"] = 0
+    socketio.emit(
+        "round_started",
+        {
+            "roundNumber": room["round_index"],
+            "isTiebreaker": is_tiebreaker,
+            "maxAttempts": room["max_attempts"],
+            "scoreboard": _scoreboard_snapshot(room),
+            "roundsTarget": room["rounds_target"],
+            "standardRoundsCompleted": room.get("standard_rounds_completed", 0),
+        },
+        to=room["code"],
+    )
+    _broadcast_room_state(room)
+
+
+def _finish_match(room: dict, *, winner_ids=None, cancelled: bool = False):
+    if winner_ids is None:
+        winner_ids = []
+    room["status"] = "finished"
+    room["current_word"] = None
+    room["round_winner_sid"] = None
+    room["round_draw"] = False
+    room["round_complete"] = True
+    room["tiebreaker_active"] = False
+    room["current_round_tiebreaker"] = False
+    winners_payload = []
+    if winner_ids:
+        allowed = set(winner_ids)
+        for player in room["players"].values():
+            if player["id"] in allowed:
+                winners_payload.append(
+                    {
+                        "playerId": player["id"],
+                        "name": player["name"],
+                        "score": player["score"],
+                    }
+                )
+    socketio.emit(
+        "match_over",
+        {
+            "scoreboard": _scoreboard_snapshot(room),
+            "winners": winners_payload,
+            "cancelled": cancelled,
+        },
+        to=room["code"],
+    )
+    _broadcast_room_state(room)
+
+
+def _finalize_round(room: dict, *, winner_sid=None, was_draw: bool = False):
+    if room.get("round_complete"):
+        return
+    room["round_complete"] = True
+    room["rounds_completed"] = room.get("rounds_completed", 0) + 1
+    is_tiebreaker = room.get("current_round_tiebreaker", False)
+    if not is_tiebreaker:
+        room["standard_rounds_completed"] = room.get("standard_rounds_completed", 0) + 1
+    winner_payload = None
+    if winner_sid and winner_sid in room["players"]:
+        player = room["players"][winner_sid]
+        winner_payload = {
+            "playerId": player["id"],
+            "name": player["name"],
+            "score": player["score"],
+        }
+    room.setdefault("match_history", []).append(
+        {
+            "round": room.get("round_index", 0),
+            "winner": winner_payload["playerId"] if winner_payload else None,
+            "draw": was_draw,
+            "word": room["current_word"].upper() if room.get("current_word") else "",
+            "isTiebreaker": is_tiebreaker,
+        }
+    )
+    socketio.emit(
+        "round_result",
+        {
+            "roundNumber": room.get("round_index", 0),
+            "winner": winner_payload,
+            "draw": was_draw,
+            "isTiebreaker": is_tiebreaker,
+            "correctWord": room["current_word"].upper() if room.get("current_word") else "",
+            "scoreboard": _scoreboard_snapshot(room),
+        },
+        to=room["code"],
+    )
+    leaders = _determine_leaders(room)
+    if room.get("tiebreaker_active"):
+        if len(leaders) == 1:
+            _finish_match(room, winner_ids=[leaders[0]["id"]])
+        else:
+            socketio.emit(
+                "tiebreaker_pending",
+                {
+                    "leaders": [
+                        {
+                            "playerId": player["id"],
+                            "name": player["name"],
+                            "score": player["score"],
+                        }
+                        for player in leaders
+                    ]
+                },
+                to=room["code"],
+            )
+            _queue_round_transition(room["code"], action="tiebreaker")
+        return
+    if room.get("standard_rounds_completed", 0) >= room.get("rounds_target", 0):
+        if len(leaders) == 1:
+            _finish_match(room, winner_ids=[leaders[0]["id"]])
+            return
+        room["tiebreaker_active"] = True
+        socketio.emit(
+            "tiebreaker_start",
+            {
+                "leaders": [
+                    {
+                        "playerId": player["id"],
+                        "name": player["name"],
+                        "score": player["score"],
+                    }
+                    for player in leaders
+                ]
+            },
+            to=room["code"],
+        )
+        _queue_round_transition(room["code"], action="tiebreaker")
+        return
+    _queue_round_transition(room["code"], action="standard")
+
+
+def _remove_player_from_room(code: str, sid: str, *, notify: bool = True):
+    room = multiplayer_rooms.get(code)
+    player_room_index.pop(sid, None)
+    if not room:
+        return
+    player = room["players"].pop(sid, None)
+    if not player:
+        return
+    leave_room(code)
+    if notify:
+        socketio.emit(
+            "player_left",
+            {"playerId": player["id"], "name": player["name"]},
+            to=code,
+        )
+    if not room["players"]:
+        multiplayer_rooms.pop(code, None)
+        return
+    _ensure_host(room)
+    if room["status"] == "playing" and len(room["players"]) < MIN_PLAYERS_PER_ROOM:
+        _finish_match(room, cancelled=True)
+        return
+    _broadcast_room_state(room)
+
+
+@socketio.on("create_room")
+def handle_create_room(data):
+    payload = data or {}
+    sid = request.sid
+    name = _sanitize_player_name(payload.get("name"))
+    rounds = payload.get("rounds")
+    if rounds not in {1, 3, 5}:
+        rounds = 3
+    lang = (payload.get("lang") or "pt").lower()
+    if lang not in {"pt", "en"}:
+        lang = "pt"
+    code = _generate_room_code()
+    join_room(code)
+    player_id = uuid4().hex
+    player_room_index[sid] = code
+    player = {
+        "id": player_id,
+        "name": name,
+        "score": 0,
+        "attempts": 0,
+        "joined_at": time.time(),
+    }
+    multiplayer_rooms[code] = {
+        "code": code,
+        "host_sid": sid,
+        "host_player_id": player_id,
+        "status": "lobby",
+        "lang": lang,
+        "initial_rounds": rounds,
+        "rounds_target": rounds,
+        "round_index": 0,
+        "rounds_completed": 0,
+        "standard_rounds_completed": 0,
+        "tiebreaker_active": False,
+        "current_round_tiebreaker": False,
+        "current_word": None,
+        "round_winner_sid": None,
+        "round_draw": False,
+        "round_complete": True,
+        "round_started_at": None,
+        "players": {sid: player},
+        "max_attempts": ROUND_ATTEMPTS,
+        "match_history": [],
+    }
+    emit(
+        "room_created",
+        {
+            "code": code,
+            "playerId": player_id,
+            "host": True,
+            "roundsTarget": rounds,
+            "language": lang,
+        },
+        to=sid,
+    )
+    _broadcast_room_state(multiplayer_rooms[code])
+
+
+@socketio.on("join_room")
+def handle_join_room_event(data):
+    payload = data or {}
+    sid = request.sid
+    code = (payload.get("code") or "").strip().upper()
+    name = _sanitize_player_name(payload.get("name"))
+    if not code or code not in multiplayer_rooms:
+        emit("room_error", {"error": "Sala n�o encontrada."}, to=sid)
+        return
+    room = multiplayer_rooms[code]
+    if room["status"] == "playing":
+        emit("room_error", {"error": "A partida jǭ come�ou."}, to=sid)
+        return
+    if len(room["players"]) >= MAX_PLAYERS_PER_ROOM:
+        emit("room_error", {"error": "Sala cheia."}, to=sid)
+        return
+    if sid in room["players"]:
+        emit("room_joined", {"code": code, "playerId": room["players"][sid]["id"]}, to=sid)
+        return
+    join_room(code)
+    player_id = uuid4().hex
+    player_room_index[sid] = code
+    player = {
+        "id": player_id,
+        "name": name,
+        "score": 0,
+        "attempts": 0,
+        "joined_at": time.time(),
+    }
+    room["players"][sid] = player
+    emit(
+        "room_joined",
+        {
+            "code": code,
+            "playerId": player_id,
+            "host": False,
+        },
+        to=sid,
+    )
+    socketio.emit(
+        "player_joined",
+        {"playerId": player_id, "name": name},
+        to=code,
+        skip_sid=sid,
+    )
+    _broadcast_room_state(room)
+
+
+@socketio.on("update_settings")
+def handle_update_settings(data):
+    payload = data or {}
+    sid = request.sid
+    code = (payload.get("code") or "").strip().upper()
+    room = multiplayer_rooms.get(code)
+    if not room or sid != room.get("host_sid"):
+        emit("room_error", {"error": "Apenas o criador pode alterar as configura��es."}, to=sid)
+        return
+    if room["status"] != "lobby":
+        emit("room_error", {"error": "N�o Ǹ poss�vel alterar durante a partida."}, to=sid)
+        return
+    updated = False
+    rounds = payload.get("rounds")
+    if rounds in {1, 3, 5}:
+        room["rounds_target"] = rounds
+        room["initial_rounds"] = rounds
+        updated = True
+    lang = payload.get("lang")
+    if isinstance(lang, str):
+        lang_code = lang.lower()
+        if lang_code in {"pt", "en"}:
+            room["lang"] = lang_code
+            updated = True
+    if updated:
+        emit(
+            "settings_updated",
+            {
+                "roundsTarget": room["rounds_target"],
+                "language": room["lang"],
+            },
+            to=sid,
+        )
+        _broadcast_room_state(room)
+
+
+@socketio.on("start_game")
+def handle_start_game(data):
+    payload = data or {}
+    sid = request.sid
+    code = (payload.get("code") or "").strip().upper()
+    room = multiplayer_rooms.get(code)
+    if not room:
+        emit("room_error", {"error": "Sala n�o encontrada."}, to=sid)
+        return
+    if sid != room.get("host_sid"):
+        emit("room_error", {"error": "Apenas o criador pode iniciar a partida."}, to=sid)
+        return
+    if room["status"] == "playing":
+        emit("room_error", {"error": "A partida jǭ estǭ em andamento."}, to=sid)
+        return
+    if len(room["players"]) < MIN_PLAYERS_PER_ROOM:
+        emit("room_error", {"error": "S�o necessǭrios pelo menos dois jogadores."}, to=sid)
+        return
+    rounds = payload.get("rounds")
+    if rounds in {1, 3, 5}:
+        room["rounds_target"] = rounds
+        room["initial_rounds"] = rounds
+    lang = (payload.get("lang") or room["lang"]).lower()
+    if lang in {"pt", "en"}:
+        room["lang"] = lang
+    room["status"] = "playing"
+    room["round_index"] = 0
+    room["rounds_completed"] = 0
+    room["standard_rounds_completed"] = 0
+    room["tiebreaker_active"] = False
+    room["current_round_tiebreaker"] = False
+    room["match_history"] = []
+    for player in room["players"].values():
+        player["score"] = 0
+        player["attempts"] = 0
+    socketio.emit(
+        "match_started",
+        {
+            "roundsTarget": room["rounds_target"],
+            "language": room["lang"],
+        },
+        to=code,
+    )
+    _broadcast_room_state(room)
+    _start_new_round(room, is_tiebreaker=False)
+
+
+@socketio.on("submit_guess")
+def handle_submit_guess(data):
+    payload = data or {}
+    sid = request.sid
+    code = (payload.get("code") or "").strip().upper()
+    guess = (payload.get("guess") or "").strip().lower()
+    room = multiplayer_rooms.get(code)
+    if not room or sid not in room["players"]:
+        emit("guess_error", {"error": "Sala ou jogador invǭlido."}, to=sid)
+        return
+    if room["status"] != "playing" or not room.get("current_word"):
+        emit("guess_error", {"error": "A rodada ainda n�o estǭ ativa."}, to=sid)
+        return
+    if room.get("round_complete"):
+        emit("guess_error", {"error": "Aguardando pr���xima rodada."}, to=sid)
+        return
+    if len(guess) != 5 or not guess.isalpha():
+        emit("guess_error", {"error": "Informe uma palavra de 5 letras."}, to=sid)
+        return
+    if guess not in VALID_MULTIPLAYER_WORDS:
+        emit("guess_error", {"error": "Palavra n�o reconhecida na lista."}, to=sid)
+        return
+    player = room["players"][sid]
+    if player["attempts"] >= room["max_attempts"]:
+        emit("guess_error", {"error": "Voc� jǭ usou todas as tentativas."}, to=sid)
+        return
+    player["attempts"] += 1
+    feedback = _check_guess_statuses_for_word(room["current_word"], guess)
+    emit(
+        "guess_result",
+        {
+            "playerId": player["id"],
+            "guess": guess.upper(),
+            "feedback": feedback,
+            "attempt": player["attempts"],
+            "maxAttempts": room["max_attempts"],
+            "roundNumber": room.get("round_index", 0),
+        },
+        to=sid,
+    )
+    socketio.emit(
+        "peer_guess",
+        {
+            "playerId": player["id"],
+            "attempt": player["attempts"],
+            "feedback": [item["status"] for item in feedback],
+            "roundNumber": room.get("round_index", 0),
+        },
+        to=code,
+        skip_sid=sid,
+    )
+    if all(item["status"] == 'green' for item in feedback):
+        room["round_winner_sid"] = sid
+        player["score"] += 1
+        _broadcast_room_state(room)
+        _finalize_round(room, winner_sid=sid, was_draw=False)
+        return
+    if _all_attempts_spent(room):
+        _broadcast_room_state(room)
+        _finalize_round(room, winner_sid=None, was_draw=True)
+    else:
+        _broadcast_room_state(room)
+
+
+@socketio.on("leave_room")
+def handle_leave_room_event(data):
+    code = None
+    if isinstance(data, dict):
+        code = (data.get("code") or "").strip().upper()
+    if not code:
+        code = player_room_index.get(request.sid)
+    if code:
+        _remove_player_from_room(code, request.sid)
+    emit("left_room", {"code": code}, to=request.sid)
+
+
+@socketio.on("play_again")
+def handle_play_again(data):
+    payload = data or {}
+    sid = request.sid
+    code = (payload.get("code") or "").strip().upper()
+    room = multiplayer_rooms.get(code)
+    if not room:
+        emit("room_error", {"error": "Sala n�o encontrada."}, to=sid)
+        return
+    if sid != room.get("host_sid"):
+        emit("room_error", {"error": "Apenas o criador pode reiniciar."}, to=sid)
+        return
+    if room["status"] != "finished":
+        emit("room_error", {"error": "A partida ainda n�o terminou."}, to=sid)
+        return
+    rounds = payload.get("rounds")
+    if rounds in {1, 3, 5}:
+        room["rounds_target"] = rounds
+        room["initial_rounds"] = rounds
+    room["status"] = "lobby"
+    room["round_index"] = 0
+    room["rounds_completed"] = 0
+    room["standard_rounds_completed"] = 0
+    room["tiebreaker_active"] = False
+    room["current_round_tiebreaker"] = False
+    room["current_word"] = None
+    room["round_complete"] = True
+    room["round_draw"] = False
+    room["match_history"] = []
+    for player in room["players"].values():
+        player["score"] = 0
+        player["attempts"] = 0
+    socketio.emit(
+        "match_reset",
+        {
+            "roundsTarget": room["rounds_target"],
+            "language": room["lang"],
+        },
+        to=code,
+    )
+    _broadcast_room_state(room)
+
+
+@socketio.on("disconnect")
+def handle_disconnect():
+    sid = request.sid
+    code = player_room_index.get(sid)
+    if code:
+        _remove_player_from_room(code, sid, notify=True)
 
 
 @app.post("/api/new-game")
@@ -201,6 +796,10 @@ def check_word():
 def index():
     return app.send_static_file("index.html")
 
+@app.route("/multiplayer")
+def multiplayer_page():
+    return app.send_static_file("multiplayer.html")
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    socketio.run(app, host="0.0.0.0", port=port, debug=True)

@@ -95,6 +95,10 @@ function initDOMElements() {
   menuDupletBtn = document.getElementById('menuDuplet');
   menuQuapletBtn = document.getElementById('menuQuaplet');
   menuMultiplayerBtn = document.getElementById('menuMultiplayer');
+  if (menuMultiplayerBtn) {
+    menuMultiplayerBtn.classList.remove('disabled');
+    menuMultiplayerBtn.removeAttribute('disabled');
+  }
   infoBtn = document.getElementById('infoBtn');
   infoOverlay = document.getElementById('infoOverlay');
   infoCloseBtn = document.getElementById('infoCloseBtn');
@@ -1301,6 +1305,11 @@ function initEventListeners() {
       if (menuDupletBtn) menuDupletBtn.classList.remove('active');
       menuQuapletBtn.classList.add('active');
       newGame();
+    });
+  }
+  if (menuMultiplayerBtn) {
+    menuMultiplayerBtn.addEventListener('click', () => {
+      window.location.href = '/multiplayer';
     });
   }
 }
