@@ -801,5 +801,9 @@ def multiplayer_page():
     return app.send_static_file("multiplayer.html")
 
 if __name__ == "__main__":
+    # Corrige comportamento em produção (Render) para suportar WebSockets
+    from eventlet import monkey_patch
+    monkey_patch()
+
     port = int(os.environ.get("PORT", 5000))
-    socketio.run(app, host="0.0.0.0", port=port, debug=True)
+    socketio.run(app, host="0.0.0.0", port=port)
