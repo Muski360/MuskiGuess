@@ -15,12 +15,16 @@ let isSubmitting = false; // evita duplo envio
 let suppressAutoAdvance = false; // evita avanço duplo entre keydown e input
 
 // Declarar variáveis do teclado ANTES das funções que as usam
+const BACKSPACE_KEY = '\u232b';
 const rows = [
   'QWERTYUIOP'.split(''),
   'ASDFGHJKL'.split(''),
-  ['ENTER', ...'ZXCVBNM'.split(''), '⌫']
+  ['ENTER', ...'ZXCVBNM'.split(''), BACKSPACE_KEY]
 ];
-let keyStatuses = {}; // letter -> gray|yellow|green
+let keyStatuses = {}; // letter -> { global: 'gray|yellow|green', perWord: { [index]: status } }
+const KEY_STATUS_PRECEDENCE = { gray: 1, yellow: 2, green: 3 };
+const DEFAULT_STATUS_COLORS = { gray: '#4b5563', yellow: '#eab308', green: '#22c55e' };
+let keyColorPalette = { ...DEFAULT_STATUS_COLORS };
 
 // In duet mode (wordCount > 1), keep track of which words have been solved. When a
 // particular word has all letters marked green, we flag it here so that its
@@ -277,6 +281,18 @@ function renderBoard() {
 
 function setStatus(text) { 
   if (statusEl) statusEl.textContent = text; 
+}
+
+function ensureKeyStatusEntry(letter) {
+  if (!keyStatuses[letter]) {
+    keyStatuses[letter] = { global: null, perWord: {} };
+  }
+  return keyStatuses[letter];
+}
+
+function getStatusColor(status) {
+  if (!status) return 'transparent';
+  return keyColorPalette[status] || DEFAULT_STATUS_COLORS[status] || 'transparent';
 }
 
 async function newGame() {
@@ -707,11 +723,24 @@ async function revealRandomLetter() {
     const revealed = [];
     words.slice(0, Math.max(1, wordCount)).forEach((w, idx) => {
       const letters = [...new Set(w.split(''))];
-      const pool = letters.filter(letter => !keyStatuses[letter]);
+      const pool = letters.filter(letter => {
+        const entry = keyStatuses[letter];
+        return !entry || !entry.global || KEY_STATUS_PRECEDENCE['yellow'] > KEY_STATUS_PRECEDENCE[entry.global];
+      });
       if (pool.length > 0) {
         const picked = pool[Math.floor(Math.random() * pool.length)];
         // mark yellow (exists)
-        keyStatuses[picked] = 'yellow';
+        const entry = ensureKeyStatusEntry(picked);
+        if (!entry.global || KEY_STATUS_PRECEDENCE['yellow'] > KEY_STATUS_PRECEDENCE[entry.global]) {
+          entry.global = 'yellow';
+        }
+        if (wordCount > 1) {
+          if (!entry.perWord[idx] || KEY_STATUS_PRECEDENCE['yellow'] > KEY_STATUS_PRECEDENCE[entry.perWord[idx]]) {
+            entry.perWord[idx] = 'yellow';
+          }
+        } else {
+          entry.perWord[0] = 'yellow';
+        }
         revealed.push({ letter: picked, index: idx });
       }
     });
@@ -1541,82 +1570,82 @@ const themes = {
   },
   orange: {
     dark: {
-      bg: '#1a0f0a',
-      panel: '#2d1a0d',
-      text: '#fed7aa',
+      bg: '#1f0e05',
+      panel: '#2c1508',
+      text: '#ffedd5',
       muted: '#fb923c',
-      green: '#ea580c',
+      green: '#f97316',
       yellow: '#fb923c',
-      gray: '#374151',
-      surface: '#3e1a0a',
-      border: '#5f1a0a',
-      buttonBg: 'linear-gradient(180deg, #5f1a0a 0%, #1a0f0a 100%)',
-      buttonBorder: '#5f1a0a',
-      toastBg: '#ea580c',
-      toastText: '#3e1a0a',
+      gray: '#475569',
+      surface: '#3b1808',
+      border: '#f97316',
+      buttonBg: 'linear-gradient(180deg, #f97316 0%, #1f0e05 100%)',
+      buttonBorder: '#f97316',
+      toastBg: '#f97316',
+      toastText: '#451a03',
       worldIcon: 'static/images/worldicon2.svg',
-      background: 'radial-gradient(1200px 600px at 10% 10%, #3e1a0a 0%, var(--bg) 60%)',
-      accentColor: '#ea580c',
-      accentBg: 'rgba(234, 88, 12, 0.1)'
+      background: 'radial-gradient(1200px 600px at 10% 10%, #431407 0%, var(--bg) 60%)',
+      accentColor: '#fb923c',
+      accentBg: 'rgba(249, 115, 22, 0.1)'
     },
     light: {
       bg: '#fff7ed',
       panel: '#ffffff',
-      text: '#3e1a0a',
-      muted: '#c2410c',
-      green: '#ea580c',
+      text: '#431407',
+      muted: '#ea580c',
+      green: '#f97316',
       yellow: '#fb923c',
-      gray: '#374151',
+      gray: '#475569',
       surface: '#ffffff',
       border: '#fed7aa',
       buttonBg: '#ffffff',
       buttonBorder: '#fed7aa',
-      toastBg: '#ea580c',
-      toastText: '#3e1a0a',
+      toastBg: '#f97316',
+      toastText: '#431407',
       worldIcon: 'static/images/worldicon.svg',
       background: 'linear-gradient(180deg, #fff7ed 0%, #fed7aa 100%)',
-      accentColor: '#ea580c',
-      accentBg: 'rgba(234, 88, 12, 0.1)'
+      accentColor: '#f97316',
+      accentBg: 'rgba(249, 115, 22, 0.15)'
     }
   },
-  brown: {
+  gold: {
     dark: {
-      bg: '#1a0f0a',
-      panel: '#2d1a0d',
-      text: '#d2b48c',
-      muted: '#a0522d',
-      green: '#8b4513',
-      yellow: '#a0522d',
-      gray: '#374151',
-      surface: '#3e1a0a',
-      border: '#5f1a0a',
-      buttonBg: 'linear-gradient(180deg, #5f1a0a 0%, #1a0f0a 100%)',
-      buttonBorder: '#5f1a0a',
-      toastBg: '#8b4513',
-      toastText: '#3e1a0a',
+      bg: '#1b1402',
+      panel: '#2a2108',
+      text: '#fef3c7',
+      muted: '#fcd34d',
+      green: '#facc15',
+      yellow: '#fcd34d',
+      gray: '#4b5563',
+      surface: '#33260a',
+      border: '#6b4f0b',
+      buttonBg: 'linear-gradient(180deg, #6b4f0b 0%, #1b1402 100%)',
+      buttonBorder: '#6b4f0b',
+      toastBg: '#facc15',
+      toastText: '#422006',
       worldIcon: 'static/images/worldicon2.svg',
-      background: 'radial-gradient(1200px 600px at 10% 10%, #3e1a0a 0%, var(--bg) 60%)',
-      accentColor: '#8b4513',
-      accentBg: 'rgba(139, 69, 19, 0.1)'
+      background: 'radial-gradient(1200px 600px at 10% 10%, #3b2a08 0%, var(--bg) 60%)',
+      accentColor: '#facc15',
+      accentBg: 'rgba(250, 204, 21, 0.12)'
     },
     light: {
-      bg: '#fef7ed',
+      bg: '#fffbeb',
       panel: '#ffffff',
-      text: '#3e1a0a',
-      muted: '#8b4513',
-      green: '#8b4513',
-      yellow: '#a0522d',
-      gray: '#374151',
+      text: '#422006',
+      muted: '#d97706',
+      green: '#facc15',
+      yellow: '#fbbf24',
+      gray: '#4b5563',
       surface: '#ffffff',
-      border: '#d2b48c',
+      border: '#fef3c7',
       buttonBg: '#ffffff',
-      buttonBorder: '#d2b48c',
-      toastBg: '#8b4513',
-      toastText: '#3e1a0a',
+      buttonBorder: '#fef3c7',
+      toastBg: '#facc15',
+      toastText: '#422006',
       worldIcon: 'static/images/worldicon.svg',
-      background: 'linear-gradient(180deg, #fef7ed 0%, #d2b48c 100%)',
-      accentColor: '#8b4513',
-      accentBg: 'rgba(139, 69, 19, 0.1)'
+      background: 'linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%)',
+      accentColor: '#facc15',
+      accentBg: 'rgba(250, 204, 21, 0.15)'
     }
   },
   pink: {
@@ -1683,6 +1712,11 @@ function applyTheme() {
   document.documentElement.style.setProperty('--toast-text', theme.toastText);
   document.documentElement.style.setProperty('--accent-color', theme.accentColor);
   document.documentElement.style.setProperty('--accent-bg', theme.accentBg);
+  keyColorPalette = {
+    gray: theme.gray || DEFAULT_STATUS_COLORS.gray,
+    yellow: theme.yellow || DEFAULT_STATUS_COLORS.yellow,
+    green: theme.green || DEFAULT_STATUS_COLORS.green,
+  };
   
   // Aplicar ícone do mundo
   const worldIcon = document.querySelector('.world-icon');
@@ -1701,6 +1735,10 @@ function applyTheme() {
   if (themeToggle) {
     themeToggle.textContent = darkMode ? '🌙' : '☀️';
   }
+  if (keyboardEl) {
+    renderKeyboard();
+  }
+
 }
 
 function switchTheme() {
@@ -1824,15 +1862,105 @@ function renderKeyboard() {
     letters.forEach(l => {
       const key = document.createElement('button');
       key.className = 'key';
-      key.textContent = l;
-      if (l === 'ENTER' || l === '⌫') key.classList.add('wide');
-      const status = keyStatuses[l];
-      if (status) key.classList.add(status);
+      key.dataset.letter = l;
+      if (l === 'ENTER' || l === BACKSPACE_KEY) key.classList.add('wide');
+      const label = document.createElement('span');
+      label.className = 'key-label';
+      label.textContent = l;
+      key.appendChild(label);
+      if (wordCount > 1 && l !== 'ENTER' && l !== BACKSPACE_KEY) {
+        const strip = document.createElement('div');
+        strip.className = 'key-segment-strip';
+        if (wordCount === 4) {
+          strip.classList.add('mode-quaplet');
+        } else if (wordCount === 2) {
+          strip.classList.add('mode-duet');
+        } else {
+          strip.classList.add('mode-multi');
+        }
+        for (let i = 0; i < wordCount; i++) {
+          const segment = document.createElement('span');
+          segment.className = 'key-segment';
+          segment.dataset.index = String(i);
+          strip.appendChild(segment);
+        }
+        key.appendChild(strip);
+      }
+      applyKeyVisualState(key, l);
       key.addEventListener('click', () => onKeyPress(l));
       rowEl.appendChild(key);
     });
     keyboardEl.appendChild(rowEl);
   });
+}
+
+function applyKeyVisualState(keyEl, letter) {
+  if (!keyEl) return;
+  const entry = keyStatuses[letter];
+  const strip = keyEl.querySelector('.key-segment-strip');
+  const isQuapletStrip = !!strip && strip.classList.contains('mode-quaplet');
+  keyEl.classList.remove('gray', 'yellow', 'green', 'multi-key-active');
+  keyEl.style.removeProperty('--key-outline-color');
+  keyEl.style.borderColor = '';
+  keyEl.style.background = '';
+  keyEl.style.color = '';
+  if (strip) {
+    strip.style.opacity = '0';
+    strip.classList.remove('active');
+    Array.from(strip.children).forEach(seg => {
+      seg.style.background = 'var(--surface)';
+      seg.style.opacity = isQuapletStrip ? '0.3' : '0.2';
+    });
+  }
+
+  if (!entry || (!entry.global && (!entry.perWord || Object.keys(entry.perWord).length === 0))) {
+    return;
+  }
+
+  const globalStatus = entry.global;
+  if (wordCount <= 1 || letter === 'ENTER' || letter === BACKSPACE_KEY) {
+    if (globalStatus) {
+      keyEl.classList.add(globalStatus);
+    }
+    return;
+  }
+
+  if (!strip) {
+    if (globalStatus) keyEl.classList.add(globalStatus);
+    return;
+  }
+
+  const segments = Array.from(strip.children);
+  const totalSegments = segments.length;
+  let hasStatus = false;
+  for (let i = 0; i < totalSegments; i++) {
+    const seg = segments[i];
+    const status = entry.perWord ? entry.perWord[i] : null;
+    if (status && KEY_STATUS_PRECEDENCE[status]) {
+      seg.style.background = getStatusColor(status);
+      seg.style.opacity = '1';
+      hasStatus = true;
+    } else {
+      seg.style.background = 'var(--surface)';
+      seg.style.opacity = isQuapletStrip ? '0.3' : '0.25';
+    }
+  }
+
+  if (!hasStatus && !globalStatus) {
+    return;
+  }
+
+  const stripOpacity = hasStatus ? 1 : (isQuapletStrip ? 0.65 : 0.5);
+  strip.style.opacity = String(stripOpacity);
+  keyEl.classList.add('multi-key-active');
+  keyEl.style.color = 'var(--text)';
+  if (globalStatus) {
+    const outlineColor = getStatusColor(globalStatus);
+    if (outlineColor && outlineColor !== 'transparent') {
+      keyEl.style.setProperty('--key-outline-color', outlineColor);
+      keyEl.style.borderColor = outlineColor;
+    }
+  }
 }
 
 function onKeyPress(k) {
@@ -1842,7 +1970,7 @@ function onKeyPress(k) {
     ensureFocusCurrent();
     return; 
   }
-  if (k === '⌫') {
+  if (k === BACKSPACE_KEY) {
     const inputs = getRowInputs(attempts);
     const current = inputs[currentCol];
     if (current.value) { 
@@ -1903,17 +2031,31 @@ function updateKeyboardFromFeedback(feedback) {
 }
 
 function updateKeyboardFromFeedbackMulti(feedbacks) {
-  // Atualizar diretamente keyStatuses com precedência: green > yellow > gray
-  const precedence = { gray: 1, yellow: 2, green: 3 };
-  feedbacks.forEach(fb => {
+  feedbacks.forEach((fb, wordIdx) => {
     (fb || []).forEach(item => {
-      const l = item.letter;
-      const s = item.status;
-      const prev = keyStatuses[l];
-      // Se já está verde, não downgrada
-      if (prev === 'green') return;
-      if (!prev || precedence[s] > precedence[prev]) {
-        keyStatuses[l] = s;
+      if (!item) return;
+      const letter = item.letter;
+      const status = item.status;
+      if (!letter || !status || !KEY_STATUS_PRECEDENCE[status]) return;
+      const entry = ensureKeyStatusEntry(letter);
+      if (!entry.global || KEY_STATUS_PRECEDENCE[status] > KEY_STATUS_PRECEDENCE[entry.global]) {
+        entry.global = status;
+      }
+      const idx = Number.isFinite(wordIdx) ? wordIdx : 0;
+      if (idx >= wordCount) return;
+      if (!entry.perWord) entry.perWord = {};
+      if (!entry.perWord[idx] || KEY_STATUS_PRECEDENCE[status] > KEY_STATUS_PRECEDENCE[entry.perWord[idx]]) {
+        entry.perWord[idx] = status;
+      }
+    });
+  });
+  Object.keys(keyStatuses).forEach(letter => {
+    const entry = keyStatuses[letter];
+    if (!entry || !entry.perWord) return;
+    Object.keys(entry.perWord).forEach(idxStr => {
+      const idx = parseInt(idxStr, 10);
+      if (Number.isFinite(idx) && idx >= wordCount) {
+        delete entry.perWord[idxStr];
       }
     });
   });
