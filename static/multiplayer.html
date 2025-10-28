@@ -12,6 +12,16 @@
 </head>
 <body>
     <div class="mp-app">
+        <div class="mp-topbar">
+            <nav class="mp-mode-menu" aria-label="Game modes">
+                <a href="/" class="mp-menu-link">Cl&aacute;ssico</a>
+                <a href="/?mode=duet" class="mp-menu-link">Dupleto</a>
+                <a href="/?mode=quaplet" class="mp-menu-link">Quapleto</a>
+                <a href="/multiplayer" class="mp-menu-link active">Multiplayer</a>
+            </nav>
+            <button id="themeToggleBtn" class="mp-theme-toggle" type="button" aria-label="Alternar tema">&#9728;</button>
+        </div>
+
         <header class="mp-header">
             <div class="mp-brand">
                 <img src="/static/images/Logo_noBackground.png" alt="MuskiGuess" class="mp-logo">
@@ -38,27 +48,10 @@
                             <span>Seu nome</span>
                             <input type="text" id="displayNameInput" maxlength="16" placeholder="Apelido" />
                         </label>
-                        <label class="mp-field hidden" id="roomCodeField">
+                        <label class="mp-field" id="roomCodeField">
                             <span>C&oacute;digo da sala</span>
                             <input type="text" id="roomCodeInput" maxlength="6" placeholder="Ex: AB12CD" />
                         </label>
-                        <div class="mp-inline-fields">
-                            <label class="mp-field">
-                                <span>N&ordm; de rodadas</span>
-                                <select id="entryRoundSelect">
-                                    <option value="1">1 rodada</option>
-                                    <option value="3" selected>3 rodadas</option>
-                                    <option value="5">5 rodadas</option>
-                                </select>
-                            </label>
-                            <label class="mp-field">
-                                <span>Idioma</span>
-                                <select id="entryLangSelect">
-                                    <option value="pt" selected>Portugu&ecirc;s</option>
-                                    <option value="en">English</option>
-                                </select>
-                            </label>
-                        </div>
                         <div class="mp-actions">
                             <button id="createRoomBtn" type="button" class="mp-primary">Criar sala</button>
                             <button id="joinRoomBtn" type="button" class="mp-secondary">Entrar na sala</button>
@@ -78,7 +71,7 @@
                         <ul id="scoreboardList" class="mp-scoreboard"></ul>
                     </div>
 
-                    <div class="mp-panel" id="hostPanel">
+                    <div class="mp-panel hidden" id="hostPanel">
                         <header class="mp-panel-header">
                             <h2>Configura&ccedil;&otilde;es</h2>
                         </header>
@@ -89,6 +82,8 @@
                                     <label><input type="radio" name="roundsOption" value="1"><span>1</span></label>
                                     <label><input type="radio" name="roundsOption" value="3" checked><span>3</span></label>
                                     <label><input type="radio" name="roundsOption" value="5"><span>5</span></label>
+                                    <label><input type="radio" name="roundsOption" value="10"><span>10</span></label>
+                                    <label><input type="radio" name="roundsOption" value="15"><span>15</span></label>
                                 </div>
                             </div>
                             <div class="mp-setting">
@@ -119,9 +114,15 @@
                     <div id="boardsContainer" class="mp-boards"></div>
 
                     <form id="guessForm" class="mp-guess-form hidden" autocomplete="off">
-                        <label for="guessInput" class="mp-setting-label">Seu palpite</label>
-                        <div class="mp-input-row">
-                            <input id="guessInput" type="text" maxlength="5" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="Digite 5 letras" />
+                        <label class="mp-setting-label">Seu palpite</label>
+                        <div class="mp-letter-grid" id="guessLetterGrid" role="group" aria-label="Letras do palpite">
+                            <input type="text" maxlength="1" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" class="mp-letter-input" aria-label="Letra 1">
+                            <input type="text" maxlength="1" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" class="mp-letter-input" aria-label="Letra 2">
+                            <input type="text" maxlength="1" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" class="mp-letter-input" aria-label="Letra 3">
+                            <input type="text" maxlength="1" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" class="mp-letter-input" aria-label="Letra 4">
+                            <input type="text" maxlength="1" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" class="mp-letter-input" aria-label="Letra 5">
+                        </div>
+                        <div class="mp-submit-row">
                             <button type="submit" class="mp-primary">Enviar</button>
                         </div>
                         <p class="mp-hint small">As tentativas acabam para todos quando algu&eacute;m acerta.</p>
@@ -133,11 +134,22 @@
         <div id="toast" class="mp-toast hidden"></div>
 
         <div id="resultOverlay" class="mp-modal hidden" role="dialog" aria-modal="true">
-            <div class="mp-modal-card">
-                <h3 id="modalTitle">Resultado</h3>
-                <p id="modalMessage"></p>
-                <button id="closeModalBtn" type="button" class="mp-primary">Ok</button>
-            </div>
+          <div class="mp-modal-card">
+            <h3 id="modalTitle">Resultado</h3>
+            <p id="modalMessage"></p>
+            <button id="closeModalBtn" type="button" class="mp-primary">Ok</button>
+          </div>
+        </div>
+
+        <div id="roundResultOverlay" class="mp-round-result hidden" role="alert" aria-live="assertive">
+          <div class="mp-round-result-card">
+            <p id="roundResultMessage" class="mp-result-message"></p>
+            <p id="roundResultWord" class="mp-result-word"></p>
+          </div>
+        </div>
+
+        <div id="countdownOverlay" class="mp-countdown hidden" aria-hidden="true">
+          <div id="countdownNumber" class="mp-countdown-number">3</div>
         </div>
     </div>
 

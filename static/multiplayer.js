@@ -51,10 +51,7 @@
   const hostPanel = document.getElementById('hostPanel');
 
   const displayNameInput = document.getElementById('displayNameInput');
-  const roomCodeField = document.getElementById('roomCodeField');
   const roomCodeInput = document.getElementById('roomCodeInput');
-  const entryRoundSelect = document.getElementById('entryRoundSelect');
-  const entryLangSelect = document.getElementById('entryLangSelect');
   const createRoomBtn = document.getElementById('createRoomBtn');
   const joinRoomBtn = document.getElementById('joinRoomBtn');
 
@@ -62,6 +59,7 @@
   const roomCodeWrap = document.getElementById('roomCodeWrap');
   const roomCodeText = document.getElementById('roomCodeText');
   const copyCodeBtn = document.getElementById('copyCodeBtn');
+  const themeToggleBtn = document.getElementById('themeToggleBtn');
 
   const roundRadioGroup = document.getElementById('roundRadioGroup');
   const languageSelect = document.getElementById('languageSelect');
@@ -69,16 +67,27 @@
   const playAgainBtn = document.getElementById('playAgainBtn');
 
   const guessForm = document.getElementById('guessForm');
-  const guessInput = document.getElementById('guessInput');
+  const letterGrid = document.getElementById('guessLetterGrid');
+  const letterInputs = Array.from(document.querySelectorAll('.mp-letter-input'));
+  let activeLetterIndex = 0;
 
   const toastEl = document.getElementById('toast');
   const modalOverlay = document.getElementById('resultOverlay');
   const modalTitle = document.getElementById('modalTitle');
   const modalMessage = document.getElementById('modalMessage');
   const closeModalBtn = document.getElementById('closeModalBtn');
+  const countdownOverlay = document.getElementById('countdownOverlay');
+  const countdownNumberEl = document.getElementById('countdownNumber');
+  const roundResultOverlay = document.getElementById('roundResultOverlay');
+  const roundResultMessageEl = document.getElementById('roundResultMessage');
+  const roundResultWordEl = document.getElementById('roundResultWord');
+  const modeMenu = document.querySelector('.mp-mode-menu');
+  let roundResultTimeoutId = null;
+  let countdownRunning = false;
+  let countdownTimeoutIds = [];
+  let countdownResolve = null;
 
   const MAX_ATTEMPTS_FALLBACK = 6;
-  let joinModePrimed = false;
 
   function sanitizeName(name) {
     return (name || '').replace(/\s+/g, ' ').trim().slice(0, 16);
@@ -96,6 +105,28 @@
     toastTimeout = setTimeout(() => {
       toastEl.classList.add('hidden');
     }, options.duration || 2800);
+  }
+
+  const THEME_STORAGE_KEY = 'multiplayerTheme';
+  let currentTheme = 'dark';
+  const SUN_ICON = '\u2600';
+  const MOON_ICON = '\u{1F319}';
+
+  function applyTheme(theme) {
+    currentTheme = theme === 'light' ? 'light' : 'dark';
+    document.body.classList.toggle('mp-theme-light', currentTheme === 'light');
+    if (themeToggleBtn) {
+      themeToggleBtn.textContent = currentTheme === 'light' ? MOON_ICON : SUN_ICON;
+      themeToggleBtn.setAttribute(
+        'aria-label',
+        currentTheme === 'light' ? 'Alternar para tema escuro' : 'Alternar para tema claro'
+      );
+    }
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, currentTheme);
+    } catch (_) {
+      /* ignore storage errors */
+    }
   }
 
   function openModal(title, message) {
@@ -124,16 +155,6 @@
     }
   }
 
-  function hideJoinField() {
-    joinModePrimed = false;
-    if (roomCodeField && !roomCodeField.classList.contains('hidden')) {
-      roomCodeField.classList.add('hidden');
-    }
-    if (roomCodeInput) {
-      roomCodeInput.value = '';
-    }
-  }
-
   function updateLobbyStatus() {
     if (!lobbyStatusEl) return;
     const map = {
@@ -152,6 +173,254 @@
     } else {
       entryView?.classList.remove('hidden');
       gameView?.classList.add('hidden');
+    }
+    if (modeMenu) {
+      modeMenu.classList.toggle('hidden', Boolean(inRoom));
+    }
+  }
+
+  function clampLetterIndex(index) {
+    if (!letterInputs.length) return 0;
+    if (index < 0) return 0;
+    if (index >= letterInputs.length) return letterInputs.length - 1;
+    return index;
+  }
+
+  function setActiveLetter(index, options = {}) {
+    if (!letterInputs.length) return;
+    const targetIndex = clampLetterIndex(index);
+    activeLetterIndex = targetIndex;
+    const target = letterInputs[targetIndex];
+    if (!target || target.disabled) return;
+    const shouldSelect = options.select !== false;
+    if (document.activeElement !== target) {
+      target.focus({ preventScroll: true });
+    }
+    if (shouldSelect) {
+      target.select();
+    }
+  }
+
+  function moveActiveLetter(delta) {
+    const nextIndex = clampLetterIndex(activeLetterIndex + delta);
+    setActiveLetter(nextIndex);
+  }
+
+  function clearGuessInputs({ focus = true } = {}) {
+    letterInputs.forEach(input => {
+      input.value = '';
+    });
+    activeLetterIndex = 0;
+    if (focus) {
+      setTimeout(() => setActiveLetter(0), 0);
+    }
+    updateActiveGuessPreview();
+  }
+
+  function setGuessInputsEnabled(enabled, { focus = true } = {}) {
+    letterInputs.forEach(input => {
+      input.disabled = !enabled;
+      if (!enabled) {
+        input.blur();
+      }
+    });
+    if (enabled && focus) {
+      setTimeout(() => setActiveLetter(activeLetterIndex || 0), 0);
+    }
+  }
+
+  function getCurrentGuessValue() {
+    if (!letterInputs.length) return '';
+    return letterInputs.map(input => (input.value || '').toUpperCase()).join('');
+  }
+
+  function updateActiveGuessPreview() {
+    const board = boards.get(state.playerId);
+    if (!board || !state.roundActive || !letterInputs.length) return;
+    const rowIndex = Math.min(board.attemptIndex, board.rows.length - 1);
+    if (rowIndex < 0) return;
+    const row = board.rows[rowIndex];
+    if (!row) return;
+    letterInputs.forEach((input, idx) => {
+      const cell = row[idx];
+      if (!cell) return;
+      cell.classList.remove('status-green', 'status-yellow', 'status-gray', 'revealed');
+      cell.textContent = (input.value || '').toUpperCase();
+    });
+  }
+
+  function handleLetterInputEvent(event, index) {
+    const input = event.target;
+    if (!input) return;
+    const raw = (input.value || '').toUpperCase().replace(/[^A-Z]/g, '');
+    if (!raw) {
+      input.value = '';
+      updateActiveGuessPreview();
+      return;
+    }
+    const letter = raw.slice(-1);
+    input.value = letter;
+    const isLast = index >= letterInputs.length - 1;
+    if (!isLast) {
+      moveActiveLetter(1);
+    } else {
+      input.select();
+    }
+    updateActiveGuessPreview();
+  }
+
+  function handleLetterKeyDownEvent(event, index) {
+    const key = event.key;
+    if (!key) return;
+    if (key === 'ArrowLeft' || key === 'ArrowUp') {
+      event.preventDefault();
+      moveActiveLetter(-1);
+      return;
+    }
+    if (key === 'ArrowRight' || key === 'ArrowDown') {
+      event.preventDefault();
+      moveActiveLetter(1);
+      return;
+    }
+    if (key === 'Backspace') {
+      event.preventDefault();
+      const input = letterInputs[index];
+      if (input && input.value) {
+        input.value = '';
+        input.select();
+      } else if (index > 0) {
+        moveActiveLetter(-1);
+        const prev = letterInputs[clampLetterIndex(index - 1)];
+        if (prev) {
+          prev.value = '';
+          prev.select();
+        }
+      }
+      updateActiveGuessPreview();
+      return;
+    }
+    if (key === 'Delete') {
+      event.preventDefault();
+      const input = letterInputs[index];
+      if (input) {
+        input.value = '';
+      }
+      updateActiveGuessPreview();
+      return;
+    }
+    if (key === ' ') {
+      event.preventDefault();
+      moveActiveLetter(1);
+      updateActiveGuessPreview();
+      return;
+    }
+    if (key.length === 1 && !/[a-zA-Z]/.test(key)) {
+      event.preventDefault();
+      return;
+    }
+  }
+
+  function handleLetterPaste(event, index) {
+    event.preventDefault();
+    const clipboard = event.clipboardData || window.clipboardData;
+    const text = clipboard ? clipboard.getData('text') : '';
+    if (!text) return;
+    const sanitized = text.toUpperCase().replace(/[^A-Z]/g, '');
+    if (!sanitized) return;
+    const chars = sanitized.split('').slice(0, letterInputs.length - index);
+    chars.forEach((char, offset) => {
+      const targetIndex = index + offset;
+      const input = letterInputs[targetIndex];
+      if (input) {
+        input.value = char;
+      }
+    });
+    const nextIndex = index + chars.length;
+    if (nextIndex < letterInputs.length) {
+      setActiveLetter(nextIndex);
+    } else {
+      setActiveLetter(letterInputs.length - 1);
+      letterInputs[letterInputs.length - 1]?.select();
+    }
+    updateActiveGuessPreview();
+  }
+
+  function hideRoundResultOverlay() {
+    if (roundResultTimeoutId) {
+      clearTimeout(roundResultTimeoutId);
+      roundResultTimeoutId = null;
+    }
+    if (roundResultOverlay) {
+      roundResultOverlay.classList.add('hidden');
+    }
+  }
+
+  function showRoundResultOverlay(options = {}) {
+    if (!roundResultOverlay) return;
+    const { winnerName, correctWord, isDraw } = options;
+    const message = isDraw ? 'Rodada empatada!' : (winnerName ? `Ponto para ${winnerName}!` : 'Rodada encerrada!');
+    const normalizedWord = correctWord && correctWord.trim().length ? correctWord : '-----';
+    if (roundResultMessageEl) {
+      roundResultMessageEl.textContent = message;
+    }
+    if (roundResultWordEl) {
+      roundResultWordEl.textContent = `Palavra: ${normalizedWord}`;
+    }
+    roundResultOverlay.classList.remove('hidden');
+    if (roundResultTimeoutId) {
+      clearTimeout(roundResultTimeoutId);
+    }
+    roundResultTimeoutId = setTimeout(() => {
+      roundResultOverlay.classList.add('hidden');
+      roundResultTimeoutId = null;
+    }, 2000);
+  }
+
+  function playCountdown() {
+    if (!countdownOverlay || !countdownNumberEl) {
+      return Promise.resolve();
+    }
+    stopCountdown(true);
+    countdownRunning = true;
+    const sequence = ['3', '2', '1'];
+    countdownOverlay.classList.remove('hidden');
+    return new Promise(resolve => {
+      countdownResolve = resolve;
+      const stepDuration = 1000;
+      const runStep = index => {
+        const value = sequence[index];
+        countdownNumberEl.textContent = value;
+        countdownNumberEl.classList.remove('animate');
+        void countdownNumberEl.offsetWidth;
+        countdownNumberEl.classList.add('animate');
+        if (index < sequence.length - 1) {
+          const timeoutId = setTimeout(() => runStep(index + 1), stepDuration);
+          countdownTimeoutIds.push(timeoutId);
+        } else {
+          const timeoutId = setTimeout(() => {
+            stopCountdown(true);
+          }, stepDuration);
+          countdownTimeoutIds.push(timeoutId);
+        }
+      };
+      runStep(0);
+    });
+  }
+
+  function stopCountdown(triggerResolve = false) {
+    countdownTimeoutIds.forEach(id => clearTimeout(id));
+    countdownTimeoutIds = [];
+    if (countdownOverlay) {
+      countdownOverlay.classList.add('hidden');
+    }
+    if (countdownNumberEl) {
+      countdownNumberEl.classList.remove('animate');
+    }
+    countdownRunning = false;
+    const resolver = countdownResolve;
+    countdownResolve = null;
+    if (triggerResolve && typeof resolver === 'function') {
+      resolver();
     }
   }
 
@@ -314,7 +583,13 @@
     scoreboardList && (scoreboardList.innerHTML = '');
     guessForm?.classList.add('hidden');
     setRoomCode(null);
-    hideJoinField();
+    if (roomCodeInput) {
+      roomCodeInput.value = '';
+    }
+    hideRoundResultOverlay();
+    stopCountdown(true);
+    clearGuessInputs({ focus: false });
+    setGuessInputsEnabled(false, { focus: false });
     updateLobbyStatus();
     if (roundInfoEl) roundInfoEl.textContent = 'Aguardando jogadores...';
     if (statusMessageEl) statusMessageEl.textContent = '';
@@ -348,22 +623,26 @@
 
   function applyHostControls() {
     const canControl = state.isHost;
-    hostPanel?.classList.toggle('disabled', !canControl);
+    const hostPanelVisible = canControl && (state.roomStatus === 'lobby' || state.roomStatus === 'finished');
+    if (hostPanel) {
+      hostPanel.classList.toggle('hidden', !hostPanelVisible);
+      hostPanel.classList.toggle('disabled', !hostPanelVisible);
+    }
     const radios = roundRadioGroup?.querySelectorAll('input[name="roundsOption"]') || [];
     radios.forEach(radio => {
-      radio.disabled = !canControl;
+      radio.disabled = !hostPanelVisible;
     });
     if (languageSelect) {
-      languageSelect.disabled = !canControl;
+      languageSelect.disabled = !hostPanelVisible;
     }
     const enoughPlayers = state.players.length >= 2;
     if (startMatchBtn) {
-      const showStart = canControl && state.roomStatus === 'lobby';
+      const showStart = hostPanelVisible && state.roomStatus === 'lobby';
       startMatchBtn.classList.toggle('hidden', !showStart);
       startMatchBtn.disabled = !showStart || !enoughPlayers;
     }
     if (playAgainBtn) {
-      const showPlayAgain = canControl && state.roomStatus === 'finished';
+      const showPlayAgain = hostPanelVisible && state.roomStatus === 'finished';
       playAgainBtn.classList.toggle('hidden', !showPlayAgain);
       playAgainBtn.disabled = !showPlayAgain;
     }
@@ -376,11 +655,14 @@
     state.tiebreakerActive = Boolean(payload?.isTiebreaker);
     resetAllBoards();
     guessForm?.classList.remove('hidden');
-    if (guessInput) {
-      guessInput.disabled = false;
-      guessInput.value = '';
-      setTimeout(() => guessInput.focus(), 120);
-    }
+    hideRoundResultOverlay();
+    clearGuessInputs({ focus: false });
+    setGuessInputsEnabled(false, { focus: false });
+    playCountdown().then(() => {
+      if (!state.roundActive) return;
+      clearGuessInputs();
+      setGuessInputsEnabled(true);
+    });
     const target = payload?.roundsTarget || state.roundsTarget || 3;
     if (roundInfoEl) {
       roundInfoEl.textContent = state.tiebreakerActive
@@ -408,15 +690,14 @@
 
   function handleRoundResult(payload) {
     state.roundActive = false;
-    if (guessInput) guessInput.disabled = true;
-    const correctWord = payload?.correctWord || '-----';
-    if (payload?.draw) {
-      openModal('Rodada empatada', `Ninguem acertou desta vez.<br>Palavra correta: <strong>${correctWord}</strong>`);
-    } else if (payload?.winner) {
-      openModal(`Ponto para ${payload.winner.name}!`, `A palavra correta era <strong>${correctWord}</strong>.`);
-    } else {
-      openModal('Rodada encerrada', `A palavra correta era <strong>${correctWord}</strong>.`);
-    }
+    setGuessInputsEnabled(false, { focus: false });
+    const correctWord = (payload?.correctWord || '').toUpperCase();
+    const winnerName = payload?.winner?.name || null;
+    showRoundResultOverlay({
+      winnerName,
+      correctWord,
+      isDraw: Boolean(payload?.draw),
+    });
     updateStatusAfterRound(payload);
   }
 
@@ -424,6 +705,9 @@
     state.roundActive = false;
     state.roomStatus = 'finished';
     guessForm?.classList.add('hidden');
+    setGuessInputsEnabled(false, { focus: false });
+    hideRoundResultOverlay();
+    stopCountdown(true);
     let title = 'Partida encerrada';
     let message = 'A partida terminou.';
     if (payload?.cancelled) {
@@ -445,6 +729,9 @@
     state.roundNumber = 0;
     state.roundActive = false;
     guessForm?.classList.add('hidden');
+    setGuessInputsEnabled(false, { focus: false });
+    hideRoundResultOverlay();
+    stopCountdown(true);
     if (roundInfoEl) roundInfoEl.textContent = 'Aguardando jogadores...';
     if (statusMessageEl) statusMessageEl.textContent = 'Partida reiniciada. Aguarde o inicio.';
     resetAllBoards();
@@ -478,8 +765,11 @@
     if (payload.playerId === state.playerId) {
       state.localAttempts = payload.attempt || state.localAttempts;
       updateAttemptsInfo();
-      if (state.localAttempts >= state.attemptLimit && guessInput) {
-        guessInput.disabled = true;
+      if (!state.roundActive || state.localAttempts >= state.attemptLimit) {
+        setGuessInputsEnabled(false, { focus: false });
+      } else {
+        clearGuessInputs();
+        setGuessInputsEnabled(true);
       }
     }
   }
@@ -513,6 +803,10 @@
     if (state.roomStatus !== 'playing') {
       state.roundActive = false;
       guessForm?.classList.add('hidden');
+      hideRoundResultOverlay();
+      stopCountdown(true);
+      clearGuessInputs({ focus: false });
+      setGuessInputsEnabled(false, { focus: false });
       if (state.roomStatus === 'lobby') {
         if (statusMessageEl) {
           statusMessageEl.textContent = state.players.length >= 2
@@ -570,15 +864,14 @@
       showToast('Conectando ao servidor... tente novamente em instantes.');
       return;
     }
-    hideJoinField();
     const name = sanitizeName(displayNameInput?.value);
     if (!name) {
       showToast('Informe um nome para jogar.');
       displayNameInput?.focus();
       return;
     }
-    const rounds = Number(entryRoundSelect?.value || 3);
-    const lang = entryLangSelect?.value || 'pt';
+    const rounds = state.roundsTarget || 3;
+    const lang = state.language || 'pt';
     createRoomBtn.disabled = true;
     joinRoomBtn.disabled = true;
     socket.emit('create_room', { name, rounds, lang });
@@ -602,15 +895,6 @@
     if (!name) {
       showToast('Informe um nome para jogar.');
       displayNameInput?.focus();
-      return;
-    }
-    if (!joinModePrimed) {
-      if (roomCodeField) {
-        roomCodeField.classList.remove('hidden');
-      }
-      joinModePrimed = true;
-      showToast('Digite o codigo da sala e clique novamente para entrar.');
-      setTimeout(() => roomCodeInput?.focus(), 50);
       return;
     }
     const code = sanitizeCode(roomCodeInput?.value);
@@ -637,17 +921,24 @@
       showToast('Aguardando proxima rodada.');
       return;
     }
-    const guess = (guessInput?.value || '').toUpperCase().replace(/[^A-Z]/g, '');
-    if (guess.length !== 5) {
+    if (!letterInputs.length) return;
+    const incompleteIndex = letterInputs.findIndex(input => !input.value || input.value.trim().length === 0);
+    if (incompleteIndex !== -1) {
+      showToast('Preencha todas as letras antes de enviar.');
+      setActiveLetter(incompleteIndex);
+      return;
+    }
+    const guess = getCurrentGuessValue();
+    if (guess.length !== letterInputs.length) {
       showToast('Digite uma palavra com 5 letras.');
-      guessInput?.focus();
+      setActiveLetter(0);
       return;
     }
     socket.emit('submit_guess', {
       code: state.roomCode,
       guess: guess.toLowerCase(),
     });
-    if (guessInput) guessInput.value = '';
+    setGuessInputsEnabled(false, { focus: false });
   }
 
   function handleStartMatch() {
@@ -676,13 +967,14 @@
     state.roomCode = payload.code;
     state.isHost = true;
     state.roomStatus = 'lobby';
-    state.language = payload.language || entryLangSelect?.value || 'pt';
-    state.roundsTarget = payload.roundsTarget || Number(entryRoundSelect?.value) || 3;
+    state.language = payload.language || state.language || 'pt';
+    state.roundsTarget = payload.roundsTarget || state.roundsTarget || 3;
     setSelectedRounds(state.roundsTarget);
     if (languageSelect) languageSelect.value = state.language;
     setRoomCode(state.roomCode);
-    hideJoinField();
     toggleViews(true);
+    clearGuessInputs({ focus: false });
+    setGuessInputsEnabled(false, { focus: false });
     showToast('Sala criada! Compartilhe o codigo.');
     applyHostControls();
   }
@@ -697,8 +989,9 @@
       if (languageSelect) languageSelect.value = state.language;
     }
     setRoomCode(state.roomCode);
-    hideJoinField();
     toggleViews(true);
+    clearGuessInputs({ focus: false });
+    setGuessInputsEnabled(false, { focus: false });
     showToast('Voce entrou na sala!');
     applyHostControls();
   }
@@ -721,9 +1014,19 @@
   copyCodeBtn?.addEventListener('click', copyRoomCode);
 
   guessForm?.addEventListener('submit', handleGuessSubmit);
-  guessInput?.addEventListener('input', () => {
-    guessInput.value = guessInput.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 5);
+  letterInputs.forEach((input, index) => {
+    input.dataset.index = String(index);
+    input.addEventListener('focus', () => {
+      activeLetterIndex = index;
+      input.select();
+    });
+    input.addEventListener('input', event => handleLetterInputEvent(event, index));
+    input.addEventListener('keydown', event => handleLetterKeyDownEvent(event, index));
+    input.addEventListener('click', () => setActiveLetter(index));
+    input.addEventListener('paste', event => handleLetterPaste(event, index));
   });
+  setGuessInputsEnabled(false, { focus: false });
+  clearGuessInputs({ focus: false });
 
   const roundRadios = roundRadioGroup?.querySelectorAll('input[name="roundsOption"]') || [];
   roundRadios.forEach(radio => {
@@ -746,6 +1049,18 @@
     emitUpdateSettings({ lang: languageSelect.value });
   });
 
+  const savedTheme = (() => {
+    try {
+      return localStorage.getItem(THEME_STORAGE_KEY);
+    } catch (_) {
+      return null;
+    }
+  })();
+  applyTheme(savedTheme === 'light' ? 'light' : 'dark');
+  themeToggleBtn?.addEventListener('click', () => {
+    applyTheme(currentTheme === 'light' ? 'dark' : 'light');
+  });
+
   startMatchBtn?.addEventListener('click', handleStartMatch);
   playAgainBtn?.addEventListener('click', handlePlayAgain);
   closeModalBtn?.addEventListener('click', closeModal);
@@ -761,7 +1076,7 @@
 
   socket.on('room_update', handleRoomUpdate);
   socket.on('settings_updated', handleSettingsUpdated);
-      socket.on('host_change', data => {
+  socket.on('host_change', data => {
     if (!data) return;
     state.isHost = data.playerId === state.playerId;
     applyHostControls();
@@ -804,7 +1119,16 @@
   socket.on('guess_error', payload => {
     const message = payload?.error || 'Palpite invalido.';
     showToast(message);
-    guessInput?.focus();
+    if (state.roundActive) {
+      setGuessInputsEnabled(true);
+      const incomplete = letterInputs.findIndex(input => !input.value);
+      if (incomplete !== -1) {
+        setActiveLetter(incomplete);
+      } else {
+        setActiveLetter(activeLetterIndex || 0);
+      }
+      updateActiveGuessPreview();
+    }
   });
 
   socket.on('disconnect', () => {

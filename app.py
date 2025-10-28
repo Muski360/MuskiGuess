@@ -1,3 +1,6 @@
+from eventlet import monkey_patch
+monkey_patch()
+
 import os
 import random
 import string
@@ -6,6 +9,7 @@ from uuid import uuid4
 
 from flask import Flask, jsonify, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
+
 
 from termo import Termo
 from words import get_random_word
@@ -51,7 +55,12 @@ except FileNotFoundError:
 except Exception as e:
     print(f"Erro ao carregar palavras inglesas: {e}")
 
-VALID_MULTIPLAYER_WORDS = portuguese_words.union(english_words)
+def _word_exists_in_lang(word: str, lang: str) -> bool:
+    if lang == "pt":
+        return word in portuguese_words
+    if lang == "en":
+        return word in english_words
+    return word in portuguese_words or word in english_words
 
 def _check_guess_statuses_for_word(word: str, guess: str):
     """Return list of {letter, status} for a single word vs guess, Wordle rules."""
@@ -347,7 +356,7 @@ def handle_create_room(data):
     sid = request.sid
     name = _sanitize_player_name(payload.get("name"))
     rounds = payload.get("rounds")
-    if rounds not in {1, 3, 5}:
+    if rounds not in {1, 3, 5, 10, 15}:
         rounds = 3
     lang = (payload.get("lang") or "pt").lower()
     if lang not in {"pt", "en"}:
@@ -461,7 +470,7 @@ def handle_update_settings(data):
         return
     updated = False
     rounds = payload.get("rounds")
-    if rounds in {1, 3, 5}:
+    if rounds in {1, 3, 5, 10, 15}:
         room["rounds_target"] = rounds
         room["initial_rounds"] = rounds
         updated = True
@@ -502,7 +511,7 @@ def handle_start_game(data):
         emit("room_error", {"error": "S�o necessǭrios pelo menos dois jogadores."}, to=sid)
         return
     rounds = payload.get("rounds")
-    if rounds in {1, 3, 5}:
+    if rounds in {1, 3, 5, 10, 15}:
         room["rounds_target"] = rounds
         room["initial_rounds"] = rounds
     lang = (payload.get("lang") or room["lang"]).lower()
@@ -549,8 +558,9 @@ def handle_submit_guess(data):
     if len(guess) != 5 or not guess.isalpha():
         emit("guess_error", {"error": "Informe uma palavra de 5 letras."}, to=sid)
         return
-    if guess not in VALID_MULTIPLAYER_WORDS:
-        emit("guess_error", {"error": "Palavra n�o reconhecida na lista."}, to=sid)
+    lang = room.get("lang", "pt")
+    if not _word_exists_in_lang(guess, lang):
+        emit("guess_error", {"error": "Palavra n�o reconhecida na lista selecionada."}, to=sid)
         return
     player = room["players"][sid]
     if player["attempts"] >= room["max_attempts"]:
@@ -622,7 +632,7 @@ def handle_play_again(data):
         emit("room_error", {"error": "A partida ainda n�o terminou."}, to=sid)
         return
     rounds = payload.get("rounds")
-    if rounds in {1, 3, 5}:
+    if rounds in {1, 3, 5, 10, 15}:
         room["rounds_target"] = rounds
         room["initial_rounds"] = rounds
     room["status"] = "lobby"
@@ -801,9 +811,5 @@ def multiplayer_page():
     return app.send_static_file("multiplayer.html")
 
 if __name__ == "__main__":
-    # Corrige comportamento em produção (Render) para suportar WebSockets
-    from eventlet import monkey_patch
-    monkey_patch()
-
     port = int(os.environ.get("PORT", 5000))
     socketio.run(app, host="0.0.0.0", port=port)
