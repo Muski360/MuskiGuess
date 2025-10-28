@@ -82,10 +82,14 @@
   const roundResultMessageEl = document.getElementById('roundResultMessage');
   const roundResultWordEl = document.getElementById('roundResultWord');
   const modeMenu = document.querySelector('.mp-mode-menu');
+  const howItWorksBtn = document.getElementById('howItWorksBtn');
+  const howItWorksPanel = document.getElementById('howItWorksPanel');
   let roundResultTimeoutId = null;
   let countdownRunning = false;
   let countdownTimeoutIds = [];
   let countdownResolve = null;
+  // When host clicks Play Again, auto-start next match after reset
+  let pendingAutoStart = false;
 
   const MAX_ATTEMPTS_FALLBACK = 6;
 
@@ -722,6 +726,15 @@
     }
     openModal(title, message);
     applyHostControls();
+    // If this client initiated Play Again and is host, immediately start next match
+    if (pendingAutoStart && state.isHost && state.roomCode) {
+      const rounds = selectedRounds();
+      const lang = languageSelect?.value || state.language;
+      pendingAutoStart = false;
+      socket.emit('start_game', { code: state.roomCode, rounds, lang });
+    } else {
+      pendingAutoStart = false;
+    }
   }
 
   function handleMatchReset() {
@@ -951,6 +964,7 @@
   function handlePlayAgain() {
     if (!state.isHost || !state.roomCode) return;
     const rounds = selectedRounds();
+    pendingAutoStart = true; // remember to auto-start once server resets the match
     socket.emit('play_again', { code: state.roomCode, rounds });
   }
 
@@ -1060,6 +1074,44 @@
   themeToggleBtn?.addEventListener('click', () => {
     applyTheme(currentTheme === 'light' ? 'dark' : 'light');
   });
+
+  // Collapsible: Como funciona?
+  if (howItWorksBtn && howItWorksPanel) {
+    const setOpen = (open) => {
+      howItWorksBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) {
+        howItWorksPanel.hidden = false;
+        const h = howItWorksPanel.scrollHeight;
+        howItWorksPanel.style.maxHeight = h + 'px';
+        howItWorksPanel.classList.add('open');
+        // After transition, reset to auto so future content changes keep height
+        howItWorksPanel.addEventListener('transitionend', function onEnd(e){
+          if (e.propertyName === 'max-height') {
+            howItWorksPanel.style.maxHeight = 'none';
+            howItWorksPanel.removeEventListener('transitionend', onEnd);
+          }
+        });
+      } else {
+        // Set current height to allow smooth collapse
+        const current = howItWorksPanel.scrollHeight;
+        howItWorksPanel.style.maxHeight = current + 'px';
+        requestAnimationFrame(() => {
+          howItWorksPanel.style.maxHeight = '0px';
+          howItWorksPanel.classList.remove('open');
+        });
+        howItWorksPanel.addEventListener('transitionend', function onEnd(e){
+          if (e.propertyName === 'max-height') {
+            howItWorksPanel.hidden = true;
+            howItWorksPanel.removeEventListener('transitionend', onEnd);
+          }
+        });
+      }
+    };
+    howItWorksBtn.addEventListener('click', () => {
+      const expanded = howItWorksBtn.getAttribute('aria-expanded') === 'true';
+      setOpen(!expanded);
+    });
+  }
 
   startMatchBtn?.addEventListener('click', handleStartMatch);
   playAgainBtn?.addEventListener('click', handlePlayAgain);

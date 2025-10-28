@@ -15,8 +15,8 @@
         <div class="mp-topbar">
             <nav class="mp-mode-menu" aria-label="Game modes">
                 <a href="/" class="mp-menu-link">Cl&aacute;ssico</a>
-                <a href="/?mode=duet" class="mp-menu-link">Dupleto</a>
-                <a href="/?mode=quaplet" class="mp-menu-link">Quapleto</a>
+                <a href="/duplet" class="mp-menu-link">Dupleto</a>
+                <a href="/quaplet" class="mp-menu-link">Quapleto</a>
                 <a href="/multiplayer" class="mp-menu-link active">Multiplayer</a>
             </nav>
             <button id="themeToggleBtn" class="mp-theme-toggle" type="button" aria-label="Alternar tema">&#9728;</button>
@@ -57,6 +57,17 @@
                             <button id="joinRoomBtn" type="button" class="mp-secondary">Entrar na sala</button>
                         </div>
                         <p class="mp-hint">Os c&oacute;digos s&atilde;o gerados automaticamente. Cada sala suporta at&eacute; 6 jogadores.</p>
+                    </div>
+                </div>
+                <div id="instructionsCard">
+                    <button id="howItWorksBtn" class="mp-collapse-toggle" type="button" aria-expanded="false" aria-controls="howItWorksPanel">Como funciona?</button>
+                    <div id="howItWorksPanel" class="mp-collapse-panel" hidden>
+                        <ul>
+                            <li>Todos tentam adivinhar a mesma palavra de 5 letras ao mesmo tempo.</li>
+                            <li>Assim que algu&eacute;m acerta, a rodada termina para todos e a palavra &eacute; revelada.</li>
+                            <li>A partida tem um n&uacute;mero fixo de rodadas (definido pelo host). Cada acerto vale 1 ponto.</li>
+                            <li>Quem somar mais pontos vence a partida. Em caso de empate, &eacute; iniciado um desempate.</li>
+                        </ul>
                     </div>
                 </div>
             </section>

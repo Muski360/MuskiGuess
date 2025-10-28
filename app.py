@@ -806,6 +806,15 @@ def check_word():
 def index():
     return app.send_static_file("index.html")
 
+@app.route("/duplet")
+@app.route("/duet")
+@app.route("/quaplet")
+@app.route("/classic")
+@app.route("/single")
+def index_modes():
+    # Serve the same SPA for mode-specific paths so direct navigation works
+    return app.send_static_file("index.html")
+
 @app.route("/multiplayer")
 def multiplayer_page():
     return app.send_static_file("multiplayer.html")

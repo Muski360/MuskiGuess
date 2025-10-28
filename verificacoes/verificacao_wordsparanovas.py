@@ -1,0 +1,131 @@
+# Lista original (vazia por enquanto)
+words = [
+    "abaco", "bosta", "monte", "monge", "abate",
+    "acima", "acido", "lacre", "porco", "afeto",
+    "agora", "ajuda", "marca", "jatos", "aluno",
+    "amigo", "anexo", "mijar", "apelo", "nicho",
+    "aroma", "atual", "aviao", "banco", "visto",
+    "bingo", "bolha", "telha", "bravo", "cacau",
+    "raios", "canto", "carro", "casal", "certa",
+    "cesto", "cinta", "claro", "cobre", "corte",
+    "costa", "cravo", "dente", "dolar", "doido",
+    "ducha", "jegue", "festa", "firme", "lindo",
+    "gente", "gordo", "grito", "forca", "gelar",
+    "hotel", "jogos", "jovem", "lagoa", "kiwis",
+    "manga", "manto", "massa", "misto", "moeda",
+    "mundo", "norte", "notas", "piano", "pinta",
+    "plano", "ponto", "homem", "quero", "rango",
+    "sabor", "santo", "sorte", "tampa", "tempo",
+    "tigre", "tinta", "torta", "trigo", "vazio",
+    "legal", "menta", "local", "trena", "honra",
+    "afora", "agudo", "ainda", "areia", "axila",
+    "barco", "baixo", "banho", "bazar", "bomba",
+    "barro", "busto", "burro", "bossa", "breve",
+    "brisa", "cabra", "carga", "clima", "cifra",
+    "cerne", "ciclo", "coral", "corpo", "couro",
+    "curto", "dorso", "deusa", "dengo", "dardo",
+    "dueto", "exato", "exame", "folha", "fruta",
+    "fenda", "fugar", "fugir", "fazer", "beber",
+    "abrir", "andar", "comer", "dizer", "falar",
+    "lutar", "viver", "estar", "gasto", "gabar",
+    "galho", "gesto", "girar", "humor", "horto",
+    "idoso", "idade", "irado", "itens", "jeito",
+    "junco", "joias", "kilos", "carma", "livro",
+    "lugar", "lento", "largo", "luzes", "moral",
+    "morte", "media", "minha", "molho", "metro",
+    "ninar", "navio", "noite", "natal", "nobre",
+    "ninja", "otimo", "opaco", "outro", "pegar",
+    "pular", "prato", "preto", "penca", "quase",
+    "raiva", "risco", "rural", "remar", "repor",
+    "ramal", "sinal", "salto", "senso", "sobra",
+    "suave", "samba", "tarde", "tocha", "tarja",
+    "trono", "vento", "tocar", "usado", "unido",
+    "urgir", "vagar", "velho", "veloz", "pirar",
+    "cenho", "zebra", "zarpa", "zumba", "junta",
+    "otima", "pardo", "rolar", "temer", "mimar",
+    "sagaz", "limpo", "termo", "negro", "exito", 
+    "mexer", "etica", "algoz", "plena", "tenue",
+    "mutua", "sobre", "aquem", "visar", "poder", 
+    "vigor", "sutil", "porem", "ideia", "sanar",
+    "audaz", "inato", "desde", "muito", "justo", 
+    "sonho", "torpe", "razao", "icone", "quilo",
+    "etnia", "futil", "haver", "lapso", "entao", 
+    "expor", "bocal", "retro", "habil", "saber",
+    "mutuo", "graca", "xibiu", "obice", "obito", 
+    "ardil", "pesar", "dever", "causa", "tenaz",
+    "brado", "vetor", "crivo", "temor", "coser", 
+    "genro", "comum", "apice", "posse", "prole",
+    "animo", "assar", "ceder", "volta", "pauta", 
+    "fugaz", "ansia", "culto", "atroz", "digno",
+    "vulgo", "vicio", "gleba", "saude", "criar", 
+    "fonte", "todos", "reves", "pudor", "dogma",
+    "denso", "nenem", "louco", "atras", "regra", 
+    "ordem", "limbo", "pedir", "clava", "feliz",
+    "impor", "usura", "banal", "juizo", "levar", 
+    "olhar", "tomar", "visao", "genio", "ouvir",
+    "caldo", "clara", "trair", "balde", "prova",
+    "acaso", "adeus", "afiar", "amplo", "antes", 
+    "apito", "arcar", "ardor", "arroz", "astro", 
+    "balsa", "bater", "bicho", "bolar", "botar", 
+    "brava", "brejo", "bruto", "caber", "cacho", 
+    "caixa", "calar", "canal", "carne", "cerca", 
+    "cesta", "citar", "civil", "colar", "copia", 
+    "coxas", "coçar", "croca", "curar", "dados", 
+    "danar", "dedos", "dores", "drama", "densa", 
+    "errar", "etapa", "falha", "ferir", "feroz", 
+    "ferro", "ficar", "pinha", "arara", "fixar", 
+    "focar", "forno", "ganho", "garra", "golpe", 
+    "grato", "grave", "guiar", "haste", "horda", 
+    "imune", "laudo", "lavar", "leito", "ligar", 
+    "linha", "livre", "lixar", "lucro", "magro", 
+    "meigo", "meter", "mirar", "molar", "morar", 
+    "mover", "nasce", "nuvem", "odiar", "optar", 
+    "ornar", "outra", "parar", "passe", "peixe", 
+    "peido", "perna", "perto", "pinto", "pisar", 
+    "pleno", "podar", "puxar", "regar", "rente", 
+    "riram", "rival", "rolha", "rosto", "roubo", 
+    "rufar", "ruido", "sacar", "salve", "selar", 
+    "sirva", "somar", "sonar", "sopra", "sopro", 
+    "sugar", "sumir", "talar", "tenso", "terno", 
+    "torso", "turma", "turvo", "janta", "valer", 
+    "vasto", "vazar", "vedar", "velar", "venda", 
+    "vivar", "vocal", "voltar", "zelar", "zunir"
+]
+
+# Lista nova (vazia por enquanto)
+entrada = [
+    "abrir", "aflor", "aguar", "alçar", "algar", "amuar", "andar", "apear", "apear", 
+"arfar", "aviar", "aviar", "azedo", "babar", "bafar", "balar", "bazar", "bicar",
+"bicar", "bocar", "bofar", "bufar", "calar", "cavar", "cegar", "cifrar", "citar",
+"coado", "colar", "cozer", "cubar", "curar", "curvar", "cutir", "datar", "depor",
+"ditar", "dobar", "donos", "draga", "ecoar", "elevar", "errar", "esgar", "falar",
+"feder", "feiar", "fitar", "fixar", "fluir", "forar", "furar", "gerar", "golar",
+"gruir", "guiar", "haver", "injar", "jarro", "julga", "julio", "latar", "lutar",
+"mamar", "manar", "matar", "moiar", "mofar", "morar", "mover", "nadar", "nasce",
+"ninar", "notar", "odiar", "olhar", "optar", "ornar", "ouvir", "parar", "pedir",
+"picar", "pisar", "podar", "pular", "puxar", "regar", "rogar", "rosar", "rufar",
+"sacar", "safar", "selar", "sopar", "sugar", "sumir", "tocar", "tomar", "toser",
+"torar", "vazar", "viver", "voar", "voltar", "zelar", "zunir", "ameno", "arduo",
+"bruto", "chato", "circo", "couro", "cruel", "duro", "largo", "leigo", "limpo",
+"meigo", "manso", "nevoa", "nuvem", "pardo", "pobre", "rouca", "suave", "turvo",
+"vasto", "veloz", "vazio", "verde", "vulgo", "vocal", "sabio", "banir", "ergue",
+"tirar", "torar", "abrir", "aguar", "aviar", "bicar", "calar", "cegar", "fitar",
+"gerar", "guiar", "ligar", "mirar", "odiar", "pisar", "regar", "rolar", "sumir",
+"vazar", "zelar", "zunir"
+]
+
+# Converte a lista original pra minúsculas e tira espaços pra padronizar
+words_set = set(w.strip().lower() for w in words)
+
+# Limpa e padroniza a lista nova
+novas = [p.strip().lower() for p in entrada if p.strip()]
+
+# Filtra só as que NÃO estão na lista original
+faltantes = [p for p in novas if p not in words_set]
+
+# Mostra o resultado formatado entre aspas e separados por vírgula
+if faltantes:
+    formatadas = ", ".join(f'"{p}"' for p in sorted(set(faltantes)))
+    print(formatadas)
+else:
+    print("Nenhuma palavra nova encontrada!")

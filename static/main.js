@@ -11,6 +11,7 @@ let secretRevealed = false;
 let currentLang = 'pt';
 let isRevealing = false;
 let muskiActivated = false;
+let hackrActivated = false; // matrix rain background toggle
 let isSubmitting = false; // evita duplo envio
 let suppressAutoAdvance = false; // evita avanço duplo entre keydown e input
 
@@ -39,13 +40,55 @@ let solvedWordSnapshots = [];
 let appRoot, board, statusEl, newGameBtn, overlay, correctWordEl, playAgainBtn, toast, confettiCanvas, ctx;
 let langOverlay, langPtBtn, langEnBtn, themeToggle;
 let helpBtn, helpOverlay, helpCloseBtn, helpTitle, helpGray, helpYellow, helpGreen, helpTries;
-let secretsBtn, secretsContent, secretsSectionTitle, secretsSectionText, secretMuskiTitle, secretMuskiText, secretBillyTitle, secretBillyText;
+let secretsBtn, secretsContent, secretsSectionTitle, secretsSectionText, secretMuskiTitle, secretMuskiText, secretBillyTitle, secretBillyText, secretHackrTitle, secretHackrText;
 let newGameBtnEl, hintEl, gameOverTitleEl, gameOverTextEl, playAgainBtnEl, toastEl;
 let keyboardEl, langWorldBtn;
 let menuClassicBtn, menuDupletBtn, menuQuapletBtn, menuMultiplayerBtn;
 let infoBtn, infoOverlay, infoCloseBtn, infoTitle, infoText, githubText;
 let logoImage;
 let activeSideOverlay = null;
+
+// Routing helpers: reflect mode in URL and set mode from URL
+function pathForMode(mode) {
+  if (mode === 'duet') return '/duplet';
+  if (mode === 'quaplet') return '/quaplet';
+  return '/'; // classic
+}
+
+function setMenuActiveForMode(mode) {
+  if (menuClassicBtn) menuClassicBtn.classList.toggle('active', mode === 'single');
+  if (menuDupletBtn) menuDupletBtn.classList.toggle('active', mode === 'duet');
+  if (menuQuapletBtn) menuQuapletBtn.classList.toggle('active', mode === 'quaplet');
+}
+
+function updateURLForMode(mode, {push = true} = {}) {
+  const path = pathForMode(mode);
+  if (push && window.location.pathname !== path) {
+    history.pushState({ mode }, '', path);
+  }
+}
+
+function setMode(mode, {push = true, startNewGame = true} = {}) {
+  if (!['single', 'duet', 'quaplet'].includes(mode)) mode = 'single';
+  gameMode = mode;
+  setMenuActiveForMode(mode);
+  updateURLForMode(mode, { push });
+  if (startNewGame) newGame();
+}
+
+// Called by UI clicks
+function setModeFromUI(mode) {
+  setMode(mode, { push: true, startNewGame: true });
+}
+
+// Parse the current path and apply
+function applyModeFromPath(pathname, {push = false, startNewGame = false} = {}) {
+  let mode = 'single';
+  const p = (pathname || '').toLowerCase();
+  if (p === '/duplet' || p === '/duet') mode = 'duet';
+  else if (p === '/quaplet') mode = 'quaplet';
+  setMode(mode, { push, startNewGame });
+}
 
 // Função para inicializar elementos DOM
 function initDOMElements() {
@@ -82,6 +125,9 @@ function initDOMElements() {
   secretMuskiText = document.getElementById('secretMuskiText');
   secretBillyTitle = document.getElementById('secretBillyTitle');
   secretBillyText = document.getElementById('secretBillyText');
+  // Optional secret: HACKR (Matrix rain background)
+  secretHackrTitle = document.getElementById('secretHackrTitle');
+  secretHackrText = document.getElementById('secretHackrText');
   newGameBtnEl = document.getElementById('newGameBtn');
   hintEl = document.querySelector('.hint');
   logoImage = document.getElementById('logoImage');
@@ -337,6 +383,7 @@ async function newGame() {
     currentCol = 0;
     secretRevealed = false;
     muskiActivated = false;
+    hackrActivated = false;
 
     // Reset solvedWords for duet mode. Each index corresponds to a word in
     // duplet/multi mode. Initially, no words are solved.
@@ -371,6 +418,15 @@ async function newGame() {
   const divineCanvas = document.getElementById('divine-particles-canvas');
   if (divineCanvas) {
     divineCanvas.remove();
+  }
+  // Limpar efeito HACKR (matrix rain)
+  if (typeof window.__hackrInterval !== 'undefined' && window.__hackrInterval) {
+    clearInterval(window.__hackrInterval);
+    window.__hackrInterval = null;
+  }
+  const existingHackr = document.getElementById('hackr-matrix');
+  if (existingHackr) {
+    existingHackr.remove();
   }
   
   // Resetar bordas douradas
@@ -688,8 +744,9 @@ function maybeRevealSecret(r) {
     focusCell(attempts, 0);
     return;
   }
-  if (val === 'RIANN' && !secretRevealed) {
-    activateDivineMode();
+  if (val === 'HACKR' && !hackrActivated) {
+    activateHackrMode();
+    hackrActivated = true;
     // Limpar a linha atual para não consumir tentativa
     const inputs = getRowInputs(attempts);
     inputs.forEach(input => input.value = '');
@@ -902,7 +959,7 @@ async function submitCurrentRow() {
   const upperGuess = guess.toUpperCase();
   
   // Não enviar palavras secretas
-  if (upperGuess === 'MUSKI' || upperGuess === 'BILLY' || upperGuess === 'RIANN') { 
+  if (upperGuess === 'MUSKI' || upperGuess === 'BILLY' || upperGuess === 'HACKR') { 
     return; 
   }
   
@@ -1282,29 +1339,17 @@ function initEventListeners() {
   // Top menu events
   if (menuClassicBtn) {
     menuClassicBtn.addEventListener('click', () => {
-      gameMode = 'single';
-      if (menuDupletBtn) menuDupletBtn.classList.remove('active');
-      if (menuQuapletBtn) menuQuapletBtn.classList.remove('active');
-      menuClassicBtn.classList.add('active');
-      newGame();
+      setModeFromUI('single');
     });
   }
   if (menuDupletBtn) {
     menuDupletBtn.addEventListener('click', () => {
-      gameMode = 'duet';
-      if (menuClassicBtn) menuClassicBtn.classList.remove('active');
-      if (menuQuapletBtn) menuQuapletBtn.classList.remove('active');
-      menuDupletBtn.classList.add('active');
-      newGame();
+      setModeFromUI('duet');
     });
   }
   if (menuQuapletBtn) {
     menuQuapletBtn.addEventListener('click', () => {
-      gameMode = 'quaplet';
-      if (menuClassicBtn) menuClassicBtn.classList.remove('active');
-      if (menuDupletBtn) menuDupletBtn.classList.remove('active');
-      menuQuapletBtn.classList.add('active');
-      newGame();
+      setModeFromUI('quaplet');
     });
   }
   if (menuMultiplayerBtn) {
@@ -1345,6 +1390,13 @@ document.addEventListener('DOMContentLoaded', function() {
   // Inicializar event listeners
   initEventListeners();
   console.log('Event listeners inicializados');
+
+  // Apply mode from current URL path before theme/language/new game
+  applyModeFromPath(window.location.pathname, {push: false});
+  // Handle browser back/forward to switch modes
+  window.addEventListener('popstate', () => {
+    applyModeFromPath(window.location.pathname, {push: false, startNewGame: true});
+  });
   
   // Aplicar tema inicial
   applyTheme();
@@ -1818,7 +1870,7 @@ function updateHelpTexts() {
     if (menuClassicBtn) menuClassicBtn.textContent = 'Clássico';
     if (menuDupletBtn) menuDupletBtn.textContent = 'Dupleto';
     if (menuQuapletBtn) menuQuapletBtn.textContent = 'Quapleto';
-    if (menuMultiplayerBtn) menuMultiplayerBtn.textContent = 'Multijogador';
+    if (menuMultiplayerBtn) menuMultiplayerBtn.textContent = 'Multiplayer';
   }
 }
 
@@ -2089,7 +2141,7 @@ function activateDivineMode() {
   document.body.style.transition = 'background 1s ease';
   
   // 3. Alterar status
-  const statusText = currentLang === 'en' ? '🌟 You have ascended, RIANN!' : '🌟 Você ascendeu, RIANN!';
+  const statusText = currentLang === 'en' ? '🌟 You have ascended!' : '🌟 Você ascendeu!';
   setStatus(statusText);
   
   // 4. Bordas douradas no tabuleiro e teclado
@@ -2151,4 +2203,66 @@ function launchDivineParticles() {
   
   // Remove o canvas depois de 12s
   setTimeout(() => canvas.remove(), 12000);
+}
+
+// Secret: HACKR — Matrix-style green numbers falling in the background
+function activateHackrMode() {
+  try {
+    let canvas = document.getElementById('hackr-matrix');
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      canvas.id = 'hackr-matrix';
+      canvas.style.position = 'fixed';
+      canvas.style.top = '0';
+      canvas.style.left = '0';
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      canvas.style.pointerEvents = 'none';
+      canvas.style.zIndex = '0';
+      document.body.appendChild(canvas);
+    }
+    if (appRoot) {
+      appRoot.style.position = 'relative';
+      appRoot.style.zIndex = '1';
+    }
+
+    const ctx = canvas.getContext('2d');
+    const chars = '01';
+    let fontSize = 16;
+    let columns = 0;
+    let drops = [];
+
+    function resizeHackr() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      columns = Math.max(1, Math.floor(canvas.width / fontSize));
+      drops = new Array(columns).fill(0);
+    }
+    resizeHackr();
+    window.addEventListener('resize', resizeHackr);
+
+    function drawHackr() {
+      if (!ctx) return;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#00ff66';
+      ctx.font = fontSize + 'px monospace';
+      for (let i = 0; i < columns; i++) {
+        const text = chars.charAt(Math.floor(Math.random() * chars.length));
+        const x = i * fontSize;
+        const y = drops[i] * fontSize;
+        ctx.fillText(text, x, y);
+        if (y > canvas.height && Math.random() > 0.975) {
+          drops[i] = 0;
+        } else {
+          drops[i]++;
+        }
+      }
+    }
+
+    if (window.__hackrInterval) clearInterval(window.__hackrInterval);
+    window.__hackrInterval = setInterval(drawHackr, 33);
+  } catch (e) {
+    console.error('Failed to activate HACKR mode:', e);
+  }
 }
