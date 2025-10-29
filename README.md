@@ -10,15 +10,12 @@ Cada partida desafia o jogador a descobrir uma ou mais palavras secretas dentro 
 
 🧠 <b>Modos de Jogo</b>
 <table> <tr><th>Modo</th><th>Descrição</th></tr> <tr><td><b>Classic</b></td><td>1 palavra • 6 tentativas • modo tradicional</td></tr> <tr><td><b>Dueto</b></td><td>2 palavras simultâneas • 7 tentativas • inspirado no “Dordle”</td></tr> <tr><td><b>Quapleto</b></td><td>4 palavras simultâneas • 9 tentativas • para os mestres</td></tr> <tr><td><b>Multiplayer</b></td><td>Dois jogadores competem em tempo real pela mesma palavra</td></tr> </table> <br>
-⚙️ Tecnologias utilizadas: <br>
+⚙️ <b>Tecnologias utilizadas: </b><br>
 
-🐍 Python + Flask + SocketIO — Backend e servidor multiplayer
-
-💻 JavaScript / HTML / CSS — Interface dinâmica e responsiva
-
-⚡ Eventlet — Suporte assíncrono para partidas simultâneas
-
-🧩 JSON / Regex / Counter — Validação e filtragem de palavras
+🐍 Python + Flask + SocketIO — Backend e servidor multiplayer<br>
+💻 JavaScript / HTML / CSS — Interface dinâmica e responsiva<br>
+⚡ Eventlet — Suporte assíncrono para partidas simultâneas<br>
+🧩 JSON / Regex / Counter — Validação e filtragem de palavras<br>
 
 <br>
 🌍 <b>Recursos principais</b>
