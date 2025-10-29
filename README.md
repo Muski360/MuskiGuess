@@ -1,1 +1,58 @@
-<h1>MuskiGuess Git</h1>
+🧩 MuskiGuess
+<p align="center"> <img src="https://raw.githubusercontent.com/<seu-usuario>/MuskiGuess/main/static/img/banner.png" alt="MuskiGuess banner" width="600"/> </p> <p align="center"> <img src="https://img.shields.io/badge/Python-3.10-blue?logo=python" /> <img src="https://img.shields.io/badge/Flask-2.3-lightgrey?logo=flask" /> <img src="https://img.shields.io/badge/JavaScript-ES6-yellow?logo=javascript" /> <img src="https://img.shields.io/badge/License-MIT-green" /> <img src="https://img.shields.io/badge/Status-Ativo-success" /> </p> <br>
+🎮 Sobre o jogo
+
+MuskiGuess é um jogo de adivinhação de palavras inspirado em Wordle, com novos modos de jogo, design próprio e suporte a multiplayer em tempo real.
+<br>
+
+Cada partida desafia o jogador a descobrir uma ou mais palavras secretas dentro de um número limitado de tentativas — com feedback visual e teclado interativo.
+<br>
+
+🧠 Modos de Jogo
+<table> <tr><th>Modo</th><th>Descrição</th></tr> <tr><td><b>Classic</b></td><td>1 palavra • 6 tentativas • modo tradicional</td></tr> <tr><td><b>Dueto</b></td><td>2 palavras simultâneas • 7 tentativas • inspirado no “Dordle”</td></tr> <tr><td><b>Quapleto</b></td><td>4 palavras simultâneas • 9 tentativas • para os mestres</td></tr> <tr><td><b>Multiplayer</b></td><td>Dois jogadores competem em tempo real pela mesma palavra</td></tr> </table> <br>
+⚙️ Tecnologias utilizadas
+
+🐍 Python + Flask + SocketIO — Backend e servidor multiplayer
+
+💻 JavaScript / HTML / CSS — Interface dinâmica e responsiva
+
+⚡ Eventlet — Suporte assíncrono para partidas simultâneas
+
+🧩 JSON / Regex / Counter — Validação e filtragem de palavras
+
+<br>
+🌍 Recursos principais
+
+✅ Suporte para Português e Inglês
+✅ Teclado interativo com feedback de posição
+✅ Sistema de histórico e estatísticas locais
+✅ Tema claro e escuro com troca dinâmica
+✅ Arquitetura modular para novos modos
+<br>
+
+🚀 Execução local:
+<small>
+  git clone https://github.com/<seu-usuario>/MuskiGuess.git
+  cd MuskiGuess
+  pip install -r requirements.txt
+  python app.py
+</small>
+
+
+Abra http://localhost:5000
+ no navegador.
+<br>
+
+🖼️ Prévia
+<p align="center"> <img src="https://raw.githubusercontent.com/<seu-usuario>/MuskiGuess/main/static/img/preview.png" alt="Gameplay preview" width="700"/> </p> <br>
+👨‍💻 Autor
+
+Desenvolvido por Murilo Dovigo Bastos
+
+Um projeto independente que une programação, design de interface e lógica linguística em um jogo divertido e desafiador.
+
+<br>
+
+📫 Contato: murilo.bastos@portalsesisp.org.br
+
+<br>

@@ -224,10 +224,7 @@ function toggleSideOverlay(type) {
 }
 
 function getWinMessage(isLastAttempt = false) {
-  if (currentLang === 'en') {
-    return isLastAttempt ? 'Phew! You got it!' : 'Congratulations, you got it!';
-  }
-  return isLastAttempt ? 'Ufa! Voc\u00ea conseguiu!' : 'Parab\u00e9ns, voc\u00ea conseguiu!';
+  return isLastAttempt ? 'Ufa! Você conseguiu!' : 'Parabéns, você conseguiu!';
 }
 
 function resizeCanvas() {
@@ -440,9 +437,7 @@ async function newGame() {
   }
   renderBoard();
   // Show initial attempt status instead of a generic message
-  setStatus(currentLang === 'en' 
-    ? `Attempt 1 of ${maxAttempts}` 
-    : `Tentativa 1 de ${maxAttempts}`);
+  setStatus(`Tentativa 1 de ${maxAttempts}`);
   hideOverlay();
   if (toast) toast.classList.add('hidden');
   if (confettiCanvas) confettiCanvas.classList.add('hidden');
@@ -727,7 +722,7 @@ function maybeRevealSecret(r) {
   if (val === 'MUSKI' && !muskiActivated) {
     revealRandomLetter();
     muskiActivated = true;
-    setStatus(currentLang === 'en' ? 'A letter has been revealed!' : 'Uma letra foi revelada!');
+    setStatus('Uma letra foi revelada!');
     // Limpar a linha atual para não consumir tentativa
     const inputs = getRowInputs(attempts);
     inputs.forEach(input => input.value = '');
@@ -771,7 +766,7 @@ async function revealRandomLetter() {
     // Fazer uma requisição para obter a palavra correta
     const res = await fetch(`/api/peek?gameId=${encodeURIComponent(gameId)}`);
     if (!res.ok) {
-      setStatus(currentLang === 'en' ? 'Error revealing letter!' : 'Erro ao revelar letra!');
+      setStatus('Erro ao revelar letra!');
       return;
     }
     
@@ -809,9 +804,9 @@ async function revealRandomLetter() {
     renderKeyboard();
     // Visual feedback: show which word each letter belongs to
     if (revealed.length === 0) {
-      setStatus(currentLang === 'en' ? 'All word letters already discovered!' : 'Todas as letras já reveladas!');
+      setStatus('Todas as letras já foram reveladas!');
     } else {
-      const title = currentLang === 'en' ? 'LETTER REVEALED:' : 'LETRA REVELADA:';
+      const title = 'LETRA REVELADA:';
       let content = '';
       revealed.forEach((item, idx) => {
         content += `${item.index + 1} = ${item.letter}`;
@@ -822,7 +817,7 @@ async function revealRandomLetter() {
     
   } catch (error) {
     console.error('Erro ao revelar letra:', error);
-    setStatus(currentLang === 'en' ? 'Error revealing letter!' : 'Erro ao revelar letra!');
+    setStatus('Erro ao revelar letra!');
   }
 }
 
@@ -964,17 +959,17 @@ async function submitCurrentRow() {
   }
   
   if (!/^[a-zA-Zçãõáéíóúàèìòùâêîôû]{5}$/.test(guess)) {
-    setStatus(currentLang === 'en' ? 'Fill all 5 letters before sending.' : 'Complete as 5 letras antes de enviar.');
+    setStatus('Complete as 5 letras antes de enviar.');
     shakeScreen(); // Tremor para palavra incompleta
     return;
   }
   
   // Verificar se a palavra existe no dicionário (português e inglês)
   if (currentLang === 'pt' || currentLang === 'en') {
-    setStatus(currentLang === 'en' ? 'Checking word...' : 'Verificando palavra...');
+    setStatus('Verificando palavra...');
     const isValidWord = await checkWordExists(guess);
     if (!isValidWord) {
-      setStatus(currentLang === 'en' ? 'Word not found in dictionary. Try another word.' : 'Palavra não encontrada no dicionário. Tente outra palavra.');
+      setStatus('Palavra não encontrada no dicionário. Tente outra palavra.');
       shakeScreen(); // Tremor para palavra inválida
       return;
     }
@@ -1048,12 +1043,12 @@ async function sendGuess(guess) {
     showWinEffects();
     showToast(winMessage);
   } else if (data.gameOver) {
-    setStatus(currentLang === 'en' ? 'Game over!' : 'Fim de jogo!');
+    setStatus('Fim de jogo!');
     const cw = data.correctWord || (Array.isArray(data.correctWords) ? data.correctWords.join(' / ') : '');
     showOverlay(cw);
   } else {
     enableNextRow();
-    setStatus(currentLang === 'en' ? `Attempt ${attempts + 1} of ${maxAttempts}` : `Tentativa ${attempts + 1} de ${maxAttempts}`);
+    setStatus(`Tentativa ${attempts + 1} de ${maxAttempts}`);
   }
 }
 
@@ -1367,26 +1362,6 @@ document.addEventListener('DOMContentLoaded', function() {
   initDOMElements();
   console.log('Elementos DOM inicializados');
   
-  // Verificar se há tema salvo no localStorage
-  const savedTheme = localStorage.getItem('muskiGuess_theme');
-  const savedDarkMode = localStorage.getItem('muskiGuess_darkMode');
-  const savedLang = localStorage.getItem('muskiGuess_lang');
-  
-  console.log('Dados salvos encontrados:', {savedTheme, savedDarkMode, savedLang});
-  
-  if (savedTheme && savedDarkMode && savedLang) {
-    console.log('Restaurando tema salvo:', savedTheme, savedDarkMode, savedLang);
-    currentTheme = savedTheme;
-    darkMode = savedDarkMode === 'true';
-    currentLang = savedLang;
-    
-    // Limpar dados salvos IMEDIATAMENTE após restaurar
-    localStorage.removeItem('muskiGuess_theme');
-    localStorage.removeItem('muskiGuess_darkMode');
-    localStorage.removeItem('muskiGuess_lang');
-    console.log('Dados salvos limpos do localStorage');
-  }
-  
   // Inicializar event listeners
   initEventListeners();
   console.log('Event listeners inicializados');
@@ -1405,21 +1380,10 @@ document.addEventListener('DOMContentLoaded', function() {
   // Aplicar idioma
   applyLanguage();
   console.log('Idioma aplicado');
-  
-  // Se há idioma salvo, iniciar jogo diretamente
-  if (savedLang) {
-    console.log('Idioma restaurado, iniciando novo jogo...');
-    newGame();
-  } else {
-    // Mostrar overlay de idioma apenas se não há idioma salvo
-    if (langOverlay) {
-      showSideOverlay('lang', { skipBlur: true });
-      console.log('Overlay de idioma mostrado');
-    } else {
-      console.log('ERRO: langOverlay não encontrado!');
-    }
-  }
-  
+
+  // Iniciar jogo imediatamente
+  newGame();
+
   console.log('Inicialização completa');
 });
 
@@ -1773,6 +1737,12 @@ function applyTheme() {
   document.documentElement.style.setProperty('--toast-text', theme.toastText);
   document.documentElement.style.setProperty('--accent-color', theme.accentColor);
   document.documentElement.style.setProperty('--accent-bg', theme.accentBg);
+  const trackColor = darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.08)';
+  const thumbColor = theme.gray || DEFAULT_STATUS_COLORS.gray;
+  const thumbHoverColor = theme.accentColor || DEFAULT_STATUS_COLORS.yellow;
+  document.documentElement.style.setProperty('--scrollbar-track', trackColor);
+  document.documentElement.style.setProperty('--scrollbar-thumb', thumbColor);
+  document.documentElement.style.setProperty('--scrollbar-thumb-hover', thumbHoverColor);
   keyColorPalette = {
     gray: theme.gray || DEFAULT_STATUS_COLORS.gray,
     yellow: theme.yellow || DEFAULT_STATUS_COLORS.yellow,
@@ -1827,93 +1797,56 @@ applyTheme();
 
 // Help modal
 function updateHelpTexts() {
-  if (currentLang === 'en') {
-    helpBtn.textContent = 'How to play?';
-    secretsBtn.textContent = 'Secrets';
-    secretsSectionTitle.textContent = 'Special Secrets';
-    secretsSectionText.textContent = 'Type these special words to activate unique powers:';
-    secretMuskiTitle.textContent = 'MUSKI';
-    secretMuskiText.textContent = 'Reveals a random letter that has not been discovered yet. Does not consume a try.';
-    secretBillyTitle.textContent = 'BILLY';
-    secretBillyText.textContent = 'Reveals the current game word.';
-    helpTitle.textContent = 'How to play';
-    helpGray.textContent = 'The letter is not in the word.';
-    helpYellow.textContent = 'The letter is in the word but wrong position.';
-    helpGreen.textContent = 'The letter is in the correct position.';
-    helpTries.textContent = (
-      gameMode === 'quaplet' ? 'You have 9 tries to solve all four words.' :
-      gameMode === 'duet' ? 'You have 7 tries to solve both words.' :
-      'You have 6 tries to guess the 5-letter word.'
-    );
-    if (menuClassicBtn) menuClassicBtn.textContent = 'Classic';
-    if (menuDupletBtn) menuDupletBtn.textContent = 'Duplet';
-    if (menuQuapletBtn) menuQuapletBtn.textContent = 'Quaplet';
-    if (menuMultiplayerBtn) menuMultiplayerBtn.textContent = 'Multiplayer';
-  } else {
-    helpBtn.textContent = 'Como jogar?';
-    secretsBtn.textContent = 'Segredos';
-    secretsSectionTitle.textContent = 'Segredos Especiais';
-    secretsSectionText.textContent = 'Digite estas palavras especiais para ativar poderes únicos:';
-    secretMuskiTitle.textContent = 'MUSKI';
-    secretMuskiText.textContent = 'Revela uma letra aleatória que ainda não foi descoberta. Não consome tentativa.';
-    secretBillyTitle.textContent = 'BILLY';
-    secretBillyText.textContent = 'Revela a palavra correta do jogo atual.';
-    helpTitle.textContent = 'Como jogar';
-    helpGray.textContent = 'A letra não existe na palavra.';
-    helpYellow.textContent = 'A letra existe na palavra em outra posição.';
-    helpGreen.textContent = 'A letra está na posição correta.';
+  if (helpBtn) helpBtn.textContent = 'Como jogar?';
+  if (secretsBtn) secretsBtn.textContent = 'Segredos';
+  if (secretsSectionTitle) secretsSectionTitle.textContent = 'Segredos Especiais';
+  if (secretsSectionText) secretsSectionText.textContent = 'Digite estas palavras especiais para ativar poderes únicos:';
+  if (secretMuskiTitle) secretMuskiTitle.textContent = 'MUSKI';
+  if (secretMuskiText) secretMuskiText.textContent = 'Revela uma letra aleatória que ainda não foi descoberta. Não consome tentativa.';
+  if (secretBillyTitle) secretBillyTitle.textContent = 'BILLY';
+  if (secretBillyText) secretBillyText.textContent = 'Revela a palavra correta do jogo atual.';
+  if (secretHackrTitle) secretHackrTitle.textContent = 'HACKR';
+  if (secretHackrText) secretHackrText.textContent = 'Ativa a chuva de números verdes em estilo Matrix.';
+  if (helpTitle) helpTitle.textContent = 'Como jogar';
+  if (helpGray) helpGray.textContent = 'A letra não existe na palavra.';
+  if (helpYellow) helpYellow.textContent = 'A letra existe na palavra em outra posição.';
+  if (helpGreen) helpGreen.textContent = 'A letra está na posição correta.';
+  if (helpTries) {
     helpTries.textContent = (
       gameMode === 'quaplet' ? 'Você tem 9 tentativas para resolver as quatro palavras.' :
       gameMode === 'duet' ? 'Você tem 7 tentativas para resolver as duas palavras.' :
       'Você tem 6 tentativas para adivinhar a palavra de 5 letras.'
     );
-    if (menuClassicBtn) menuClassicBtn.textContent = 'Clássico';
-    if (menuDupletBtn) menuDupletBtn.textContent = 'Dupleto';
-    if (menuQuapletBtn) menuQuapletBtn.textContent = 'Quapleto';
-    if (menuMultiplayerBtn) menuMultiplayerBtn.textContent = 'Multiplayer';
   }
+  if (menuClassicBtn) menuClassicBtn.textContent = 'Clássico';
+  if (menuDupletBtn) menuDupletBtn.textContent = 'Dupleto';
+  if (menuQuapletBtn) menuQuapletBtn.textContent = 'Quapleto';
+  if (menuMultiplayerBtn) menuMultiplayerBtn.textContent = 'Multiplayer';
 }
 
-// Info modal
 function updateInfoTexts() {
-  if (currentLang === 'en') {
-    if (infoTitle) infoTitle.textContent = 'About the Game';
-    if (infoText) infoText.textContent = 'Made by Muski360, this game was inspired by Termo and Wordle. Made with AI.';
-    if (githubText) githubText.textContent = 'View on GitHub';
-  } else {
-    if (infoTitle) infoTitle.textContent = 'Sobre o Jogo';
-    if (infoText) infoText.textContent = 'Feito por Muski360, esse jogo foi inspirado no Termo e no Wordle. Feito por IA.';
-    if (githubText) githubText.textContent = 'Ver no GitHub';
-  }
+  if (infoTitle) infoTitle.textContent = 'Sobre o Jogo';
+  if (infoText) infoText.textContent = 'Criado por Muski360, este jogo é uma versão única inspirada no Termo e no Wordle, feito com IA.';
+  if (githubText) githubText.textContent = 'Ver no GitHub';
 }
+
 function applyLanguage() {
-  document.documentElement.lang = currentLang === 'en' ? 'en' : 'pt-BR';
+  document.documentElement.lang = 'pt-BR';
   updateHelpTexts();
   updateInfoTexts();
-  if (currentLang === 'en') {
-    if (newGameBtnEl) newGameBtnEl.textContent = 'New game';
-    if (hintEl) hintEl.textContent = '';
-    if (gameOverTitleEl) gameOverTitleEl.textContent = 'Game over';
-    if (gameOverTextEl && gameOverTextEl.childNodes[0]) {
-      gameOverTextEl.childNodes[0].textContent = 'The correct word was: ';
-    }
-    if (playAgainBtnEl) playAgainBtnEl.textContent = 'Play again';
-    if (toastEl) toastEl.textContent = 'Congratulations, you got it!';
-    if (board) board.setAttribute('aria-label', 'Game board');
-  } else {
-    if (newGameBtnEl) newGameBtnEl.textContent = 'Novo jogo';
-    if (hintEl) hintEl.textContent = '';
-    if (gameOverTitleEl) gameOverTitleEl.textContent = 'Fim de jogo';
-    if (gameOverTextEl && gameOverTextEl.childNodes[0]) {
-      gameOverTextEl.childNodes[0].textContent = 'A palavra correta era: ';
-    }
-    if (playAgainBtnEl) playAgainBtnEl.textContent = 'Jogar novamente';
-    if (toastEl) toastEl.textContent = 'Parabéns, você conseguiu!';
-    if (board) board.setAttribute('aria-label', 'Tabuleiro do jogo');
+  if (newGameBtnEl) newGameBtnEl.textContent = 'Novo jogo';
+  if (hintEl) hintEl.textContent = '';
+  if (gameOverTitleEl) gameOverTitleEl.textContent = 'Fim de jogo';
+  if (gameOverTextEl && gameOverTextEl.childNodes[0]) {
+    gameOverTextEl.childNodes[0].textContent = 'A palavra correta era: ';
   }
+  if (playAgainBtnEl) playAgainBtnEl.textContent = 'Jogar novamente';
+  if (toastEl) toastEl.textContent = 'Parabéns, você conseguiu!';
+  if (board) board.setAttribute('aria-label', 'Tabuleiro do jogo');
 }
 
 // On-screen keyboard
+
 function renderKeyboard() {
   if (!keyboardEl) return;
   keyboardEl.innerHTML = '';
@@ -2079,7 +2012,7 @@ async function showCurrentWordInLogo() {
       const data = await response.json();
       const wordText = data.correctWord || (Array.isArray(data.correctWords) ? data.correctWords.join(' / ') : '');
       if (wordText) {
-        setStatus(currentLang === 'en' ? `Current word: ${wordText}` : `Palavra atual: ${wordText}`);
+        setStatus(`Palavra atual: ${wordText}`);
       }
     }
   } catch (error) {
@@ -2130,7 +2063,7 @@ function activateDivineMode() {
   // 1. Alterar título H1
   const titleEl = document.querySelector('h1');
   if (titleEl) {
-    const titleText = currentLang === 'en' ? '☀️ Divine Mode ☀️' : '☀️ Modo Divino ☀️';
+    const titleText = '☀️ Modo Divino ☀️';
     titleEl.textContent = titleText;
     titleEl.style.color = 'gold';
     titleEl.style.textShadow = '0 0 10px rgb(3, 146, 212), 0 0 20px #fff8b0, 0 0 30px #ffe680';
@@ -2141,7 +2074,7 @@ function activateDivineMode() {
   document.body.style.transition = 'background 1s ease';
   
   // 3. Alterar status
-  const statusText = currentLang === 'en' ? '🌟 You have ascended!' : '🌟 Você ascendeu!';
+  const statusText = '🌟 Você ascendeu!';
   setStatus(statusText);
   
   // 4. Bordas douradas no tabuleiro e teclado
