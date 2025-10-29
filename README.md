@@ -1,5 +1,5 @@
 🧩 MuskiGuess
-<p align="center"> <img src="https://raw.githubusercontent.com/<seu-usuario>/MuskiGuess/main/static/img/banner.png" alt="MuskiGuess banner" width="600"/> </p> <p align="center"> <img src="https://img.shields.io/badge/Python-3.10-blue?logo=python" /> <img src="https://img.shields.io/badge/Flask-2.3-lightgrey?logo=flask" /> <img src="https://img.shields.io/badge/JavaScript-ES6-yellow?logo=javascript" /> <img src="https://img.shields.io/badge/License-MIT-green" /> <img src="https://img.shields.io/badge/Status-Ativo-success" /> </p> <br>
+<p align="center"> <img src="https://raw.githubusercontent.com/Muski360/MuskiGuess/main/static/img/Logo_noBackground.png" alt="MuskiGuess logo" width="600"/> </p> <p align="center"> <img src="https://img.shields.io/badge/Python-3.10-blue?logo=python" /> <img src="https://img.shields.io/badge/Flask-2.3-lightgrey?logo=flask" /> <img src="https://img.shields.io/badge/JavaScript-ES6-yellow?logo=javascript" /> <img src="https://img.shields.io/badge/License-MIT-green" /> <img src="https://img.shields.io/badge/Status-Ativo-success" /> </p> <br>
 🎮 Sobre o jogo
 
 MuskiGuess é um jogo de adivinhação de palavras inspirado em Wordle, com novos modos de jogo, design próprio e suporte a multiplayer em tempo real.
@@ -31,28 +31,26 @@ Cada partida desafia o jogador a descobrir uma ou mais palavras secretas dentro 
 <br>
 
 🚀 Execução local:
-<small>
-  git clone https://github.com/<seu-usuario>/MuskiGuess.git
-  cd MuskiGuess
-  pip install -r requirements.txt
-  python app.py
-</small>
+<pre> 
+```bash git clone https://github.com/Muski360/MuskiGuess.git 
+cd MuskiGuess 
+pip install -r requirements.txt 
+python app.py ```
+</pre>
 
 
 Abra http://localhost:5000
  no navegador.
 <br>
 
-🖼️ Prévia
-<p align="center"> <img src="https://raw.githubusercontent.com/<seu-usuario>/MuskiGuess/main/static/img/preview.png" alt="Gameplay preview" width="700"/> </p> <br>
 👨‍💻 Autor
 
-Desenvolvido por Murilo Dovigo Bastos
+Desenvolvido por Muski360
 
 Um projeto independente que une programação, design de interface e lógica linguística em um jogo divertido e desafiador.
 
 <br>
 
-📫 Contato: murilo.bastos@portalsesisp.org.br
+📫 Contato: mudb360@gmail.com
 
 <br>
