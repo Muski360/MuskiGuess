@@ -1,5 +1,5 @@
 🧩 MuskiGuess
-<p align="center"> <img src="https://raw.githubusercontent.com/Muski360/MuskiGuess/main/static/img/Logo_noBackground.png" alt="MuskiGuess logo" width="600"/> </p> <p align="center"> <img src="https://img.shields.io/badge/Python-3.10-blue?logo=python" /> <img src="https://img.shields.io/badge/Flask-2.3-lightgrey?logo=flask" /> <img src="https://img.shields.io/badge/JavaScript-ES6-yellow?logo=javascript" /> <img src="https://img.shields.io/badge/License-MIT-green" /> <img src="https://img.shields.io/badge/Status-Ativo-success" /> </p> <br>
+<p align="center"> <img src="https://github.com/Muski360/MuskiGuess/blob/main/static/images/Logo_noBackground.png" alt="MuskiGuess logo" width="600"/> </p> <p align="center"> <img src="https://img.shields.io/badge/Python-3.11-blue?logo=python" /> <img src="https://img.shields.io/badge/Flask-2.3-lightgrey?logo=flask" /> <img src="https://img.shields.io/badge/JavaScript-ES6-yellow?logo=javascript" /> <img src="https://img.shields.io/badge/License-MIT-green" /> <img src="https://img.shields.io/badge/Status-Ativo-success" /> </p> <br>
 🎮 Sobre o jogo
 
 MuskiGuess é um jogo de adivinhação de palavras inspirado em Wordle, com novos modos de jogo, design próprio e suporte a multiplayer em tempo real.
@@ -10,7 +10,7 @@ Cada partida desafia o jogador a descobrir uma ou mais palavras secretas dentro 
 
 🧠 Modos de Jogo
 <table> <tr><th>Modo</th><th>Descrição</th></tr> <tr><td><b>Classic</b></td><td>1 palavra • 6 tentativas • modo tradicional</td></tr> <tr><td><b>Dueto</b></td><td>2 palavras simultâneas • 7 tentativas • inspirado no “Dordle”</td></tr> <tr><td><b>Quapleto</b></td><td>4 palavras simultâneas • 9 tentativas • para os mestres</td></tr> <tr><td><b>Multiplayer</b></td><td>Dois jogadores competem em tempo real pela mesma palavra</td></tr> </table> <br>
-⚙️ Tecnologias utilizadas
+⚙️ Tecnologias utilizadas: <br>
 
 🐍 Python + Flask + SocketIO — Backend e servidor multiplayer
 
@@ -23,19 +23,19 @@ Cada partida desafia o jogador a descobrir uma ou mais palavras secretas dentro 
 <br>
 🌍 Recursos principais
 
-✅ Suporte para Português e Inglês
-✅ Teclado interativo com feedback de posição
-✅ Sistema de histórico e estatísticas locais
-✅ Tema claro e escuro com troca dinâmica
-✅ Arquitetura modular para novos modos
+✅ Suporte para Português e Inglês <br>
+✅ Teclado interativo com feedback de posição <br>
+✅ Sistema de histórico e estatísticas locais <br>
+✅ Tema claro e escuro com troca dinâmica <br>
+✅ Arquitetura modular para novos modos <br>
 <br>
 
 🚀 Execução local:
 <pre> 
-```bash git clone https://github.com/Muski360/MuskiGuess.git 
+bash git clone https://github.com/Muski360/MuskiGuess.git 
 cd MuskiGuess 
 pip install -r requirements.txt 
-python app.py ```
+python app.py
 </pre>
 
 
@@ -45,7 +45,7 @@ Abra http://localhost:5000
 
 👨‍💻 Autor
 
-Desenvolvido por Muski360
+Desenvolvido por <b>Muski360</b>
 
 Um projeto independente que une programação, design de interface e lógica linguística em um jogo divertido e desafiador.
 
