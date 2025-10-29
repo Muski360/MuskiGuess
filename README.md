@@ -1,4 +1,4 @@
-🧩 MuskiGuess
+<h1 align="center">Muskiguess</h1>
 <p align="center"> <img src="https://github.com/Muski360/MuskiGuess/blob/main/static/images/Logo_noBackground.png" alt="MuskiGuess logo" width="200"/> </p> <p align="center"> <img src="https://img.shields.io/badge/Python-3.11-blue?logo=python" /> <img src="https://img.shields.io/badge/Flask-2.3-lightgrey?logo=flask" /> <img src="https://img.shields.io/badge/JavaScript-ES6-yellow?logo=javascript" /> <img src="https://img.shields.io/badge/License-MIT-green" /> <img src="https://img.shields.io/badge/Status-Ativo-success" /> </p> <br>
 🎮 <b>Sobre o jogo</b>
 
