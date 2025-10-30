@@ -1,4 +1,0 @@
-} else if (e.key === 'Enter') {
-    // evita duplo envio via Enter rápido
-    if (!isSubmitting) submitCurrentRow();
-  }
