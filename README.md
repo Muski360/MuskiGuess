@@ -20,7 +20,7 @@ Cada partida desafia o jogador a descobrir uma ou mais palavras secretas dentro 
 🧩 JSON / Regex / Counter — Validação e filtragem de palavras<br>
 
 <br>
-🌍 <b>Recursos principais</b><br>
+🌍 <b>Recursos principais</b><br><br>
 
 ✅ Suporte para Português e Inglês <br>
 ✅ Teclado interativo com feedback de posição <br>
