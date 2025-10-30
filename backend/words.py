@@ -42,7 +42,7 @@ words = [
     "imune", "laudo", "lavar", "leito", "ligar", "linha", "livre", "lixar", "lucro", "magro",
     "meigo", "meter", "mirar", "molar", "morar", "mover", "nasce", "nuvem", "odiar", "optar",
     "ornar", "outra", "parar", "passe", "peixe", "peido", "perna", "perto", "pinto", "pisar",
-    "pleno", "podar", "puxar", "regar", "rente", "riram", "rival", "rolha", "rosto", "roubo",
+    "pleno", "podar", "puxar", "regar", "rente", "jejum", "rival", "rolha", "rosto", "roubo",
     "rufar", "ruido", "sacar", "salve", "selar", "sirva", "somar", "sonar", "sopra", "sopro",
     "sugar", "sumir", "talar", "tenso", "terno", "torso", "turma", "turvo", "janta", "valer",
     "vasto", "vazar", "vedar", "velar", "venda", "vivar", "vocal", "robos", "zelar", "zunir",
@@ -60,7 +60,7 @@ words = [
     "latir", "lacos", "leigo", "lepra", "lesar", "licao", "medir", "meias", "melao", "micos",
     "obeso", "oncas", "oleos", "pacto", "padre", "papel", "pausa", "pelos", "peita", "pinga",
     "posar", "praca", "prima", "queda", "rasgo", "reter", "saldo", "senha", "surto", "tacar",
-    "piada", "audio", "primo", "hifen", "harpa", "hindu", "junho", "julho", "juiza", "jejum"
+    "piada", "audio", "primo", "hifen", "harpa", "hindu", "junho", "julho", "juiza"
     ]
 # Lista EN fácil (5 letras, vocabulário simples)
 english_words_easy = [
