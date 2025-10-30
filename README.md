@@ -11,7 +11,7 @@ Cada partida desafia o jogador a descobrir uma ou mais palavras secretas dentro 
 <br>
 
 🧠 <b>Modos de Jogo</b>
-<table> <tr><th>Modo</th><th>Descrição</th></tr> <tr><td><b>Classic</b></td><td>1 palavra • 6 tentativas • modo tradicional</td></tr> <tr><td><b>Dueto</b></td><td>2 palavras simultâneas • 7 tentativas • inspirado no “Dordle”</td></tr> <tr><td><b>Quapleto</b></td><td>4 palavras simultâneas • 9 tentativas • para os mestres</td></tr> <tr><td><b>Multiplayer</b></td><td>Dois jogadores competem em tempo real pela mesma palavra</td></tr> </table> <br>
+<table> <tr><th>Modo</th><th>Descrição</th></tr> <tr><td><b>Classic</b></td><td>1 palavra • 6 tentativas • modo tradicional</td></tr> <tr><td><b>Dueto</b></td><td>2 palavras simultâneas • 7 tentativas • inspirado no “Dordle”</td></tr> <tr><td><b>Quapleto</b></td><td>4 palavras simultâneas • 9 tentativas • para os mestres</td></tr> <tr><td><b>Multiplayer</b></td><td>Dois à seis jogadores competem em tempo real pela mesma palavra</td></tr> </table> <br>
 ⚙️ <b>Tecnologias utilizadas: </b><br><br>
 
 🐍 Python + Flask + SocketIO — Backend e servidor multiplayer<br>
@@ -51,5 +51,6 @@ Um projeto independente que une programação, design de interface e lógica lin
 <br>
 
 📫 Contato: <b>mudb360@gmail.com</b>
+
 
 <br>
