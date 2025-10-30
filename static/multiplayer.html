@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MuskiGuess Multiplayer</title>
+    <link rel="icon" type="image/png" sizes="1024x1024" href="/static/images/LogoIcon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;700&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/multiplayer.css" />
+</head>
+<body>
+    <div class="mp-app">
+        <div class="mp-topbar">
+            <nav class="mp-mode-menu" aria-label="Game modes">
+                <a href="/" class="mp-menu-link">Cl&aacute;ssico</a>
+                <a href="/duplet" class="mp-menu-link">Dupleto</a>
+                <a href="/quaplet" class="mp-menu-link">Quapleto</a>
+                <a href="/multiplayer" class="mp-menu-link active">Multiplayer</a>
+            </nav>
+            <button id="themeToggleBtn" class="mp-theme-toggle" type="button" aria-label="Alternar tema">&#9728;</button>
+        </div>
+
+        <header class="mp-header">
+            <div class="mp-brand">
+                <img src="/static/images/Logo_noBackground.png" alt="MuskiGuess" class="mp-logo">
+                <div class="mp-title-group">
+                    <h1>MuskiGuess</h1>
+                    <span>Modo Multiplayer</span>
+                </div>
+            </div>
+            <div class="mp-room-meta hidden" id="roomCodeWrap">
+                <span class="mp-room-label">Sala:</span>
+                <span class="mp-room-code" id="roomCodeText">----</span>
+                <button id="copyCodeBtn" class="mp-small-btn" type="button">Copiar</button>
+            </div>
+            <button id="leaveRoomBtn" class="mp-leave-btn hidden" type="button">Sair da sala</button>
+        </header>
+
+        <main class="mp-main">
+            <section class="mp-entry" id="entryView">
+                <div class="mp-card">
+                    <h2>Jogue com seus amigos</h2>
+                    <p class="mp-subtitle">Crie uma sala privada ou entre com um c&oacute;digo existente.</p>
+                    <div class="mp-form">
+                        <label class="mp-field">
+                            <span>Seu nome</span>
+                            <input type="text" id="displayNameInput" maxlength="16" placeholder="Apelido" />
+                        </label>
+                        <label class="mp-field" id="roomCodeField">
+                            <span>C&oacute;digo da sala</span>
+                            <input type="text" id="roomCodeInput" maxlength="6" placeholder="Ex: AB12CD" />
+                        </label>
+                        <div class="mp-actions">
+                            <button id="createRoomBtn" type="button" class="mp-primary">Criar sala</button>
+                            <button id="joinRoomBtn" type="button" class="mp-secondary">Entrar na sala</button>
+                        </div>
+                        <p class="mp-hint">Os c&oacute;digos s&atilde;o gerados automaticamente. Cada sala suporta at&eacute; 6 jogadores.</p>
+                    </div>
+                </div>
+                <div id="instructionsCard">
+                    <button id="howItWorksBtn" class="mp-collapse-toggle" type="button" aria-expanded="false" aria-controls="howItWorksPanel">Como funciona?</button>
+                    <div id="howItWorksPanel" class="mp-collapse-panel" hidden>
+                        <ul>
+                            <li>Todos tentam adivinhar a mesma palavra de 5 letras ao mesmo tempo.</li>
+                            <li>Assim que algu&eacute;m acerta, a rodada termina para todos e a palavra &eacute; revelada.</li>
+                            <li>A partida tem um n&uacute;mero fixo de rodadas (definido pelo host). Cada acerto vale 1 ponto.</li>
+                            <li>Quem somar mais pontos vence a partida. Em caso de empate, &eacute; iniciado um desempate.</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mp-game hidden" id="gameView">
+                <aside class="mp-sidebar">
+                    <div class="mp-panel">
+                        <header class="mp-panel-header">
+                            <h2>Jogadores</h2>
+                            <span id="lobbyStatusText" class="mp-badge">Aguardando</span>
+                        </header>
+                        <ul id="scoreboardList" class="mp-scoreboard"></ul>
+                    </div>
+
+                    <div class="mp-panel hidden" id="hostPanel">
+                        <header class="mp-panel-header">
+                            <h2>Configura&ccedil;&otilde;es</h2>
+                        </header>
+                        <div class="mp-settings">
+                            <div class="mp-setting">
+                                <span class="mp-setting-label">Rodadas</span>
+                                <div class="mp-radio-group" id="roundRadioGroup">
+                                    <label><input type="radio" name="roundsOption" value="1"><span>1</span></label>
+                                    <label><input type="radio" name="roundsOption" value="3" checked><span>3</span></label>
+                                    <label><input type="radio" name="roundsOption" value="5"><span>5</span></label>
+                                    <label><input type="radio" name="roundsOption" value="10"><span>10</span></label>
+                                    <label><input type="radio" name="roundsOption" value="15"><span>15</span></label>
+                                </div>
+                            </div>
+                            <div class="mp-setting">
+                                <label for="languageSelect" class="mp-setting-label">Idioma das palavras</label>
+                                <select id="languageSelect">
+                                    <option value="pt">Portugu&ecirc;s</option>
+                                    <option value="en">English</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mp-panel-actions">
+                            <button id="startMatchBtn" type="button" class="mp-primary">Iniciar partida</button>
+                            <button id="playAgainBtn" type="button" class="mp-secondary hidden">Jogar novamente</button>
+                        </div>
+                        <p class="mp-hint small">Somente o criador da sala pode alterar as configura&ccedil;&otilde;es e iniciar o jogo.</p>
+                    </div>
+                </aside>
+
+                <section class="mp-stage">
+                    <div class="mp-round-header">
+                        <div>
+                            <p id="roundInfo" class="mp-round-info">Aguardando jogadores...</p>
+                            <p id="statusMessage" class="mp-status-message"></p>
+                        </div>
+                        <div class="mp-chip" id="attemptsInfo">0/0 tentativas</div>
+                    </div>
+
+                    <div id="boardsContainer" class="mp-boards"></div>
+
+                    <form id="guessForm" class="mp-guess-form hidden" autocomplete="off">
+                        <label class="mp-setting-label">Seu palpite</label>
+                        <div class="mp-letter-grid" id="guessLetterGrid" role="group" aria-label="Letras do palpite">
+                            <input type="text" maxlength="1" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" class="mp-letter-input" aria-label="Letra 1">
+                            <input type="text" maxlength="1" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" class="mp-letter-input" aria-label="Letra 2">
+                            <input type="text" maxlength="1" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" class="mp-letter-input" aria-label="Letra 3">
+                            <input type="text" maxlength="1" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" class="mp-letter-input" aria-label="Letra 4">
+                            <input type="text" maxlength="1" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" class="mp-letter-input" aria-label="Letra 5">
+                        </div>
+                        <div class="mp-submit-row">
+                            <button type="submit" class="mp-primary">Enviar</button>
+                        </div>
+                        <p class="mp-hint small">As tentativas acabam para todos quando algu&eacute;m acerta.</p>
+                    </form>
+                </section>
+            </section>
+        </main>
+
+        <div id="toast" class="mp-toast hidden"></div>
+
+        <div id="resultOverlay" class="mp-modal hidden" role="dialog" aria-modal="true">
+          <div class="mp-modal-card">
+            <h3 id="modalTitle">Resultado</h3>
+            <p id="modalMessage"></p>
+            <button id="closeModalBtn" type="button" class="mp-primary">Ok</button>
+          </div>
+        </div>
+
+        <div id="roundResultOverlay" class="mp-round-result hidden" role="alert" aria-live="assertive">
+          <div class="mp-round-result-card">
+            <p id="roundResultMessage" class="mp-result-message"></p>
+            <p id="roundResultWord" class="mp-result-word"></p>
+          </div>
+        </div>
+
+        <div id="countdownOverlay" class="mp-countdown hidden" aria-hidden="true">
+          <div id="countdownNumber" class="mp-countdown-number">3</div>
+        </div>
+    </div>
+
+    <script>
+      (function() {
+        function loadScript(src) {
+          return new Promise(function(resolve, reject) {
+            var script = document.createElement('script');
+            script.src = src;
+            script.async = false;
+            script.onload = resolve;
+            script.onerror = function() {
+              reject(new Error('Failed to load ' + src));
+            };
+            document.head.appendChild(script);
+          });
+        }
+
+        loadScript('/socket.io/socket.io.js')
+          .catch(function() {
+            return loadScript('https://cdn.socket.io/4.7.5/socket.io.min.js');
+          })
+          .finally(function() {
+            loadScript('/static/multiplayer.js');
+          });
+      })();
+    </script>
+</body>
+</html>

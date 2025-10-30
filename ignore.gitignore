@@ -1,0 +1,19 @@
+# Caches e bytecode Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Arquivos temporários e de teste
+*tmp*
+*temp*
+*.log
+
+# Ambientes virtuais
+venv/
+.env/
+
+# Scripts auxiliares (caso não sejam distribuídos)
+scripts/
+
+# Diretórios de testes (se não fizerem parte do pacote final)
+tests/
