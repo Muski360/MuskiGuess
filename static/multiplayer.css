@@ -16,6 +16,13 @@
     --board-bg: rgba(15, 23, 42, 0.9);
     --cell-border: rgba(148, 163, 184, 0.3);
     --shadow-soft: 0 16px 48px rgba(15, 23, 42, 0.45);
+    --menu-bg: rgba(30, 41, 59, 0.75);
+    --menu-border: rgba(148, 163, 184, 0.35);
+    --menu-shadow: 0 12px 26px rgba(10, 15, 28, 0.42);
+    --menu-hover-shadow: 0 6px 16px rgba(6, 11, 23, 0.3);
+    --menu-hover-bg: rgba(56, 189, 248, 0.2);
+    --menu-active-bg: rgba(56, 189, 248, 0.28);
+    --menu-focus-outline: rgba(56, 189, 248, 0.5);
 }
 
 body.mp-theme-light {
@@ -36,6 +43,13 @@ body.mp-theme-light {
     --board-bg: rgba(255, 255, 255, 0.94);
     --cell-border: rgba(148, 163, 184, 0.45);
     --shadow-soft: 0 12px 30px rgba(148, 163, 184, 0.35);
+    --menu-bg: rgba(248, 250, 252, 0.9);
+    --menu-border: rgba(148, 163, 184, 0.42);
+    --menu-shadow: 0 12px 24px rgba(148, 163, 184, 0.24);
+    --menu-hover-shadow: 0 6px 16px rgba(148, 163, 184, 0.18);
+    --menu-hover-bg: rgba(37, 99, 235, 0.16);
+    --menu-active-bg: rgba(37, 99, 235, 0.24);
+    --menu-focus-outline: rgba(37, 99, 235, 0.45);
 }
 
 * {
@@ -68,9 +82,10 @@ body {
 .mp-topbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 8px;
+    justify-content: center;
+    gap: 12px;
+    margin: 0 auto 12px;
+    width: min(880px, 100%);
 }
 
 .mp-mode-menu {
@@ -78,7 +93,17 @@ body {
     flex-wrap: wrap;
     gap: 10px;
     justify-content: center;
+    align-items: center;
     margin: 0;
+    padding: 10px 18px;
+    border-radius: 14px;
+    background: var(--menu-bg);
+    border: 1px solid var(--menu-border);
+    box-shadow: var(--menu-shadow);
+    backdrop-filter: blur(6px);
+    min-height: 56px;
+    flex: 1 1 auto;
+    max-width: calc(100% - 64px);
 }
 
 .mp-theme-toggle {
@@ -90,6 +115,8 @@ body {
     font-size: 1rem;
     cursor: pointer;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+    margin-left: 12px;
+    flex-shrink: 0;
 }
 
 .mp-theme-toggle:hover {
@@ -112,6 +139,8 @@ body.mp-theme-light .mp-theme-toggle {
     border-radius: 20px;
     padding: 20px 24px;
     box-shadow: var(--shadow-soft);
+    width: min(880px, 100%);
+    margin: 0 auto;
 }
 
 .mp-brand {
@@ -141,26 +170,73 @@ body.mp-theme-light .mp-theme-toggle {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 6px 14px;
+    padding: 8px 16px;
+    min-width: 110px;
     border-radius: 999px;
-    border: 1px solid var(--border);
-    background: var(--surface);
+    border: 1px solid transparent;
+    background: transparent;
     color: var(--text);
-    font-size: 0.85rem;
+    font-size: 0.92rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
     text-decoration: none;
-    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.mp-menu-link:hover {
-    transform: translateY(-1px);
+.mp-menu-link:hover,
+.mp-menu-link:focus-visible {
+    background: var(--menu-hover-bg);
     border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent-soft);
+    transform: translateY(-1px);
+    box-shadow: var(--menu-hover-shadow);
+    color: var(--text);
+}
+
+.mp-menu-link:focus-visible {
+    outline: 2px solid var(--menu-focus-outline);
+    outline-offset: 2px;
 }
 
 .mp-menu-link.active {
+    background: var(--menu-active-bg);
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    color: var(--text);
+    box-shadow: var(--menu-hover-shadow);
 }
+
+@media (max-width: 820px) {
+    .mp-topbar {
+        width: 100%;
+        padding: 0 12px;
+    }
+    .mp-mode-menu {
+        width: 100%;
+        max-width: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .mp-mode-menu {
+        width: 100%;
+        justify-content: center;
+        padding: 10px 14px;
+        max-width: none;
+    }
+    .mp-mode-menu .mp-menu-link {
+        flex: 1 1 calc(50% - 10px);
+        min-width: 0;
+    }
+}
+
+@media (max-width: 420px) {
+    .mp-mode-menu {
+        gap: 8px;
+    }
+    .mp-mode-menu .mp-menu-link {
+        flex: 1 1 100%;
+    }
+}
+
 
 .mp-room-meta {
     display: flex;

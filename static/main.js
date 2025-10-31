@@ -25,6 +25,21 @@ const rows = [
 let keyStatuses = {}; // letter -> { global: 'gray|yellow|green', perWord: { [index]: status } }
 const KEY_STATUS_PRECEDENCE = { gray: 1, yellow: 2, green: 3 };
 const DEFAULT_STATUS_COLORS = { gray: '#4b5563', yellow: '#eab308', green: '#22c55e' };
+
+function hexToRgb(hex) {
+  if (typeof hex !== 'string') return { r: 0, g: 0, b: 0 };
+  let normalized = hex.replace('#', '');
+  if (normalized.length === 3) {
+    normalized = normalized.split('').map(ch => ch + ch).join('');
+  }
+  const intVal = parseInt(normalized, 16);
+  if (Number.isNaN(intVal)) return { r: 0, g: 0, b: 0 };
+  return {
+    r: (intVal >> 16) & 255,
+    g: (intVal >> 8) & 255,
+    b: intVal & 255,
+  };
+}
 let keyColorPalette = { ...DEFAULT_STATUS_COLORS };
 
 // In duet mode (wordCount > 1), keep track of which words have been solved. When a
@@ -34,6 +49,10 @@ let keyColorPalette = { ...DEFAULT_STATUS_COLORS };
 // wordIndex (0-based) in the duet layout.
 let solvedWords = [];
 let solvedWordSnapshots = [];
+let pendingAppMode = 'single';
+if (document.body) {
+  document.body.setAttribute('data-game-mode', pendingAppMode);
+}
 
 
 // Variáveis globais para elementos DOM
@@ -61,6 +80,16 @@ function setMenuActiveForMode(mode) {
   if (menuQuapletBtn) menuQuapletBtn.classList.toggle('active', mode === 'quaplet');
 }
 
+function applyModeLayout(mode) {
+  pendingAppMode = mode;
+  if (appRoot) {
+    appRoot.setAttribute('data-mode', mode);
+  }
+  if (document.body) {
+    document.body.setAttribute('data-game-mode', mode);
+  }
+}
+
 function updateURLForMode(mode, {push = true} = {}) {
   const path = pathForMode(mode);
   if (push && window.location.pathname !== path) {
@@ -73,6 +102,7 @@ function setMode(mode, {push = true, startNewGame = true} = {}) {
   gameMode = mode;
   setMenuActiveForMode(mode);
   updateURLForMode(mode, { push });
+  applyModeLayout(mode);
   if (startNewGame) newGame();
 }
 
@@ -94,6 +124,9 @@ function applyModeFromPath(pathname, {push = false, startNewGame = false} = {}) 
 function initDOMElements() {
   appRoot = document.getElementById('appRoot');
   board = document.getElementById('board');
+  if (appRoot) {
+    appRoot.setAttribute('data-mode', pendingAppMode);
+  }
   if (!board) {
     console.error('Board element not found in DOM!');
   }
@@ -1743,6 +1776,22 @@ function applyTheme() {
   document.documentElement.style.setProperty('--scrollbar-track', trackColor);
   document.documentElement.style.setProperty('--scrollbar-thumb', thumbColor);
   document.documentElement.style.setProperty('--scrollbar-thumb-hover', thumbHoverColor);
+  const accentHex = theme.accentColor || '#3b82f6';
+  const accentRgb = hexToRgb(accentHex);
+  const menuBg = darkMode ? 'rgba(17, 25, 40, 0.78)' : 'rgba(245, 247, 251, 0.86)';
+  const menuBorder = darkMode ? 'rgba(148, 163, 184, 0.32)' : 'rgba(148, 163, 184, 0.42)';
+  const menuHoverBg = `rgba(${accentRgb.r}, ${accentRgb.g}, ${accentRgb.b}, ${darkMode ? 0.24 : 0.16})`;
+  const menuActiveBg = `rgba(${accentRgb.r}, ${accentRgb.g}, ${accentRgb.b}, ${darkMode ? 0.3 : 0.22})`;
+  const menuShadow = darkMode ? '0 12px 28px rgba(10, 15, 28, 0.45)' : '0 12px 24px rgba(148, 163, 184, 0.25)';
+  const menuHoverShadow = darkMode ? '0 6px 16px rgba(6, 11, 23, 0.32)' : '0 6px 16px rgba(148, 163, 184, 0.18)';
+  const menuFocusOutline = `rgba(${accentRgb.r}, ${accentRgb.g}, ${accentRgb.b}, ${darkMode ? 0.55 : 0.45})`;
+  document.documentElement.style.setProperty('--menu-bg', menuBg);
+  document.documentElement.style.setProperty('--menu-border', menuBorder);
+  document.documentElement.style.setProperty('--menu-hover-bg', menuHoverBg);
+  document.documentElement.style.setProperty('--menu-active-bg', menuActiveBg);
+  document.documentElement.style.setProperty('--menu-shadow', menuShadow);
+  document.documentElement.style.setProperty('--menu-hover-shadow', menuHoverShadow);
+  document.documentElement.style.setProperty('--menu-focus-outline', menuFocusOutline);
   keyColorPalette = {
     gray: theme.gray || DEFAULT_STATUS_COLORS.gray,
     yellow: theme.yellow || DEFAULT_STATUS_COLORS.yellow,
