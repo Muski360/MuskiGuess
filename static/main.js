@@ -992,7 +992,7 @@ async function submitCurrentRow() {
   }
   
   if (!/^[a-zA-Zçãõáéíóúàèìòùâêîôû]{5}$/.test(guess)) {
-    setStatus('Complete as 5 letras antes de enviar.');
+    setStatus('Complete as 5 letras.');
     shakeScreen(); // Tremor para palavra incompleta
     return;
   }
@@ -1002,7 +1002,7 @@ async function submitCurrentRow() {
     setStatus('Verificando palavra...');
     const isValidWord = await checkWordExists(guess);
     if (!isValidWord) {
-      setStatus('Palavra não encontrada no dicionário. Tente outra palavra.');
+      setStatus('Essa palavra não existe.');
       shakeScreen(); // Tremor para palavra inválida
       return;
     }
