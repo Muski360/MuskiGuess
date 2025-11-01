@@ -35,10 +35,14 @@
     language: 'pt',
     roundsTarget: 3,
     players: [],
+    displayName: '',
   };
 
   const boards = new Map();
   let toastTimeout = null;
+  const ROOM_SESSION_KEY = 'mpActiveRoom';
+  let autoJoinRequested = false;
+  let pendingJoinCode = null;
 
   const entryView = document.getElementById('entryView');
   const gameView = document.getElementById('gameView');
@@ -84,6 +88,10 @@
   const modeMenu = document.querySelector('.mp-mode-menu');
   const howItWorksBtn = document.getElementById('howItWorksBtn');
   const howItWorksPanel = document.getElementById('howItWorksPanel');
+  const namePromptOverlay = document.getElementById('namePromptOverlay');
+  const namePromptInput = document.getElementById('namePromptInput');
+  const namePromptConfirm = document.getElementById('namePromptConfirm');
+  const namePromptCancel = document.getElementById('namePromptCancel');
   let roundResultTimeoutId = null;
   let countdownRunning = false;
   let countdownTimeoutIds = [];
@@ -156,6 +164,136 @@
       roomCodeText.textContent = '----';
       roomCodeWrap.classList.add('hidden');
       leaveRoomBtn?.classList.add('hidden');
+    }
+  }
+
+  function updateUrlWithRoomCode(code) {
+    try {
+      const url = new URL(window.location.href);
+      if (code) {
+        url.searchParams.set('code', code);
+      } else {
+        url.searchParams.delete('code');
+      }
+      window.history.replaceState({}, '', url);
+    } catch (err) {
+      console.warn('Nao foi possivel atualizar a URL da sala:', err);
+    }
+  }
+
+  function persistRoomSession(code, name) {
+    if (!code || !name) return;
+    try {
+      const payload = JSON.stringify({
+        code: sanitizeCode(code),
+        name: sanitizeName(name),
+        ts: Date.now(),
+      });
+      localStorage.setItem(ROOM_SESSION_KEY, payload);
+    } catch (err) {
+      console.warn('Nao foi possivel salvar a sessao da sala:', err);
+    }
+  }
+
+  function loadRoomSession() {
+    try {
+      const raw = localStorage.getItem(ROOM_SESSION_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !parsed.code || !parsed.name) return null;
+      return {
+        code: sanitizeCode(parsed.code),
+        name: sanitizeName(parsed.name),
+      };
+    } catch (err) {
+      console.warn('Nao foi possivel carregar a sessao da sala:', err);
+      return null;
+    }
+  }
+
+  function clearRoomSession() {
+    try {
+      localStorage.removeItem(ROOM_SESSION_KEY);
+    } catch (err) {
+      console.warn('Nao foi possivel limpar a sessao da sala:', err);
+    }
+  }
+
+  function showNamePrompt(code, presetName = '') {
+    if (!namePromptOverlay || !namePromptInput) return;
+    pendingJoinCode = sanitizeCode(code);
+    autoJoinRequested = false;
+    namePromptOverlay.dataset.code = pendingJoinCode;
+    namePromptInput.value = presetName || '';
+    namePromptOverlay.classList.remove('hidden');
+    setTimeout(() => {
+      namePromptInput.focus();
+      namePromptInput.select();
+    }, 0);
+  }
+
+  function hideNamePrompt() {
+    if (!namePromptOverlay) return;
+    namePromptOverlay.classList.add('hidden');
+    delete namePromptOverlay.dataset.code;
+  }
+
+  function emitJoinRequest(code, name, options = {}) {
+    const payload = { name, code, ...options };
+    if (socketConnectionEstablished) {
+      socket.emit('join_room', payload);
+      return;
+    }
+    const attempt = () => {
+      socket.emit('join_room', payload);
+      socket.off('connect', attempt);
+    };
+    socket.on('connect', attempt);
+    if (typeof socket.connect === 'function') {
+      socket.connect();
+    }
+  }
+
+  function performJoin(code, name) {
+    const sanitizedCode = sanitizeCode(code);
+    const sanitizedName = sanitizeName(name);
+    if (!sanitizedCode || !sanitizedName) {
+      showToast('Informe um nome valido para entrar.');
+      return;
+    }
+    state.displayName = sanitizedName;
+    if (displayNameInput) displayNameInput.value = sanitizedName;
+    if (roomCodeInput) roomCodeInput.value = sanitizedCode;
+    autoJoinRequested = true;
+    pendingJoinCode = sanitizedCode;
+    joinRoomBtn && (joinRoomBtn.disabled = true);
+    createRoomBtn && (createRoomBtn.disabled = true);
+    emitJoinRequest(sanitizedCode, sanitizedName, { resume: true });
+    setTimeout(() => {
+      joinRoomBtn && (joinRoomBtn.disabled = false);
+      createRoomBtn && (createRoomBtn.disabled = false);
+    }, 1200);
+  }
+
+  function initJoinFromUrl() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const session = loadRoomSession();
+      const codeParam = sanitizeCode(params.get('code') || '');
+      if (!codeParam) {
+        if (session?.name && displayNameInput && !displayNameInput.value) {
+          displayNameInput.value = session.name;
+        }
+        return;
+      }
+      if (session && session.code === codeParam && session.name) {
+        performJoin(codeParam, session.name);
+        return;
+      }
+      const presetName = session?.name || state.displayName || (displayNameInput?.value || '');
+      showNamePrompt(codeParam, presetName);
+    } catch (err) {
+      console.warn('Nao foi possivel processar o codigo da URL:', err);
     }
   }
 
@@ -599,6 +737,11 @@
     if (statusMessageEl) statusMessageEl.textContent = '';
     updateAttemptsInfo();
     toggleViews(false);
+    clearRoomSession();
+    updateUrlWithRoomCode(null);
+    pendingJoinCode = null;
+    autoJoinRequested = false;
+    hideNamePrompt();
   }
 
   function selectedRounds() {
@@ -887,6 +1030,7 @@
     const lang = state.language || 'pt';
     createRoomBtn.disabled = true;
     joinRoomBtn.disabled = true;
+    state.displayName = name;
     socket.emit('create_room', { name, rounds, lang });
     setTimeout(() => {
       createRoomBtn.disabled = false;
@@ -921,6 +1065,7 @@
     }
     joinRoomBtn.disabled = true;
     createRoomBtn.disabled = true;
+    state.displayName = name;
     socket.emit('join_room', { name, code });
     setTimeout(() => {
       joinRoomBtn.disabled = false;
@@ -991,6 +1136,12 @@
     setGuessInputsEnabled(false, { focus: false });
     showToast('Sala criada! Compartilhe o codigo.');
     applyHostControls();
+    updateUrlWithRoomCode(state.roomCode);
+    if (state.displayName) {
+      persistRoomSession(state.roomCode, state.displayName);
+    }
+    autoJoinRequested = false;
+    pendingJoinCode = null;
   }
 
   function handleRoomJoined(payload) {
@@ -1008,6 +1159,12 @@
     setGuessInputsEnabled(false, { focus: false });
     showToast('Voce entrou na sala!');
     applyHostControls();
+    updateUrlWithRoomCode(state.roomCode);
+    if (state.displayName) {
+      persistRoomSession(state.roomCode, state.displayName);
+    }
+    autoJoinRequested = false;
+    pendingJoinCode = null;
   }
 
   function handleLeftRoom() {
@@ -1113,6 +1270,38 @@
     });
   }
 
+  namePromptConfirm?.addEventListener('click', () => {
+    if (!namePromptOverlay) return;
+    const code = namePromptOverlay.dataset.code || pendingJoinCode || '';
+    const nameValue = namePromptInput?.value || '';
+    const sanitizedName = sanitizeName(nameValue);
+    if (!sanitizedName) {
+      showToast('Informe um nome para jogar.');
+      namePromptInput?.focus();
+      return;
+    }
+    hideNamePrompt();
+    performJoin(code, sanitizedName);
+  });
+
+  namePromptCancel?.addEventListener('click', () => {
+    hideNamePrompt();
+    updateUrlWithRoomCode(null);
+    pendingJoinCode = null;
+    autoJoinRequested = false;
+    clearRoomSession();
+  });
+
+  namePromptInput?.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      namePromptConfirm?.click();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      namePromptCancel?.click();
+    }
+  });
+
   startMatchBtn?.addEventListener('click', handleStartMatch);
   playAgainBtn?.addEventListener('click', handlePlayAgain);
   closeModalBtn?.addEventListener('click', closeModal);
@@ -1167,6 +1356,20 @@
   socket.on('room_error', payload => {
     const message = payload?.error || 'Ocorreu um erro na sala.';
     showToast(message);
+    if (autoJoinRequested) {
+      autoJoinRequested = false;
+      const code = pendingJoinCode;
+      if (code) {
+        const lower = message.toLowerCase();
+        if (lower.includes('nao encontrada') || lower.includes('não encontrada')) {
+          clearRoomSession();
+          updateUrlWithRoomCode(null);
+          pendingJoinCode = null;
+        } else {
+          showNamePrompt(code, state.displayName || '');
+        }
+      }
+    }
   });
   socket.on('guess_error', payload => {
     const message = payload?.error || 'Palpite invalido.';
@@ -1200,6 +1403,7 @@
   toggleViews(false);
   updateAttemptsInfo();
   updateLobbyStatus();
+  initJoinFromUrl();
 })();
 
 

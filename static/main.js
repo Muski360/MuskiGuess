@@ -50,6 +50,12 @@ let keyColorPalette = { ...DEFAULT_STATUS_COLORS };
 let solvedWords = [];
 let solvedWordSnapshots = [];
 let pendingAppMode = 'single';
+const STORAGE_VERSION = 1;
+const STORAGE_PREFIX = 'muskiGuess.v1';
+let guessHistory = [];
+let currentStatusText = '';
+let gameFinished = false;
+let lastGameResult = null;
 if (document.body) {
   document.body.setAttribute('data-game-mode', pendingAppMode);
 }
@@ -97,18 +103,24 @@ function updateURLForMode(mode, {push = true} = {}) {
   }
 }
 
-function setMode(mode, {push = true, startNewGame = true} = {}) {
+function setMode(mode, {push = true, startNewGame = true, forceNew = false} = {}) {
   if (!['single', 'duet', 'quaplet'].includes(mode)) mode = 'single';
   gameMode = mode;
   setMenuActiveForMode(mode);
   updateURLForMode(mode, { push });
   applyModeLayout(mode);
-  if (startNewGame) newGame();
+  if (startNewGame) {
+    if (!forceNew && attemptResumeFromStorage({ mode, lang: currentLang })) {
+      persistState();
+      return;
+    }
+    newGame({ resetStorage: forceNew });
+  }
 }
 
 // Called by UI clicks
 function setModeFromUI(mode) {
-  setMode(mode, { push: true, startNewGame: true });
+  setMode(mode, { push: true, startNewGame: true, forceNew: false });
 }
 
 // Parse the current path and apply
@@ -359,7 +371,264 @@ function renderBoard() {
   renderKeyboard();
 }
 
+function storageKeyFor(mode = gameMode, lang = currentLang) {
+  const safeMode = (mode || 'single').toLowerCase();
+  const safeLang = (lang || 'pt').toLowerCase();
+  return `${STORAGE_PREFIX}:${safeLang}:${safeMode}`;
+}
+
+function loadPersistedGame(mode = gameMode, lang = currentLang) {
+  if (typeof window === 'undefined' || !window.localStorage) return null;
+  try {
+    const raw = window.localStorage.getItem(storageKeyFor(mode, lang));
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || (data.version && data.version !== STORAGE_VERSION)) {
+      window.localStorage.removeItem(storageKeyFor(mode, lang));
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.warn('Falha ao carregar estado salvo:', err);
+    return null;
+  }
+}
+
+function savePersistedGame(state, mode = gameMode, lang = currentLang) {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const payload = JSON.stringify({
+      ...state,
+      version: STORAGE_VERSION,
+    });
+    window.localStorage.setItem(storageKeyFor(mode, lang), payload);
+  } catch (err) {
+    console.warn('Falha ao salvar estado do jogo:', err);
+  }
+}
+
+function clearPersistedGame(mode = gameMode, lang = currentLang) {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    window.localStorage.removeItem(storageKeyFor(mode, lang));
+  } catch (err) {
+    console.warn('Falha ao limpar estado salvo:', err);
+  }
+}
+
+function clearPersistedGamesForLanguage(lang) {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const prefix = `${STORAGE_PREFIX}:${(lang || '').toLowerCase()}:`;
+    const keysToRemove = [];
+    for (let idx = 0; idx < window.localStorage.length; idx++) {
+      const key = window.localStorage.key(idx);
+      if (key && key.startsWith(prefix)) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => window.localStorage.removeItem(key));
+  } catch (err) {
+    console.warn('Falha ao limpar estados por idioma:', err);
+  }
+}
+
+function snapshotGuessHistory() {
+  if (!Array.isArray(guessHistory)) return [];
+  try {
+    return JSON.parse(JSON.stringify(guessHistory));
+  } catch (_) {
+    // fallback shallow copy
+    return guessHistory.map(entry => ({ ...entry }));
+  }
+}
+
+function persistState(extra = {}) {
+  if (!gameId) {
+    clearPersistedGame(gameMode, currentLang);
+    return;
+  }
+  const overlayVisible = !!(overlay && !overlay.classList.contains('hidden'));
+  const snapshot = {
+    version: STORAGE_VERSION,
+    gameId,
+    mode: gameMode,
+    lang: currentLang,
+    attempts,
+    maxAttempts,
+    wordCount,
+    statusText: currentStatusText,
+    guessHistory: snapshotGuessHistory(),
+    gameFinished,
+    lastGameResult,
+    overlayVisible,
+    correctWord: overlayVisible && correctWordEl ? (correctWordEl.textContent || '') : '',
+    titleText: document.title,
+    timestamp: Date.now(),
+    ...extra,
+  };
+  savePersistedGame(snapshot, gameMode, currentLang);
+}
+
+function recomputeSolvedStateFromHistory() {
+  if (wordCount <= 1) {
+    solvedWords = [];
+    solvedWordSnapshots = [];
+    return;
+  }
+  solvedWords = new Array(wordCount).fill(false);
+  solvedWordSnapshots = new Array(wordCount).fill(null);
+  guessHistory.forEach(entry => {
+    if (!entry || !Array.isArray(entry.feedback)) return;
+    entry.feedback.forEach((fb, idx) => {
+      if (!Array.isArray(fb) || solvedWords[idx]) return;
+      const isSolved = fb.length === 5 && fb.every(item => item && item.status === 'green');
+      if (isSolved) {
+        solvedWords[idx] = true;
+        solvedWordSnapshots[idx] = fb.map(item => ({
+          letter: item.letter,
+          status: item.status,
+        }));
+      }
+    });
+  });
+}
+
+function applyHistoryToBoard() {
+  if (!board || !Array.isArray(guessHistory) || guessHistory.length === 0) {
+    keyStatuses = {};
+    renderKeyboard();
+    return;
+  }
+  const totalRows = Math.min(guessHistory.length, board.children.length);
+  for (let attemptIndex = 0; attemptIndex < totalRows; attemptIndex++) {
+    const entry = guessHistory[attemptIndex];
+    if (!entry) continue;
+    if (wordCount === 1) {
+      const row = board.children[attemptIndex];
+      if (!row) continue;
+      const inputs = row.querySelectorAll('input');
+      entry.feedback.forEach((cell, idx) => {
+        const input = inputs[idx];
+        if (!input) return;
+        input.value = cell.letter || '';
+        input.disabled = true;
+        input.tabIndex = -1;
+        const cellEl = input.parentElement;
+        if (!cellEl) return;
+        cellEl.classList.remove('gray', 'yellow', 'green', 'active');
+        if (cell.status) {
+          cellEl.classList.add(cell.status);
+        }
+      });
+    } else {
+      const block = board.children[attemptIndex];
+      if (!block || !Array.isArray(entry.feedback)) continue;
+      const rows = block.querySelectorAll('.row');
+      entry.feedback.forEach((fb, wordIdx) => {
+        const rowEl = rows[wordIdx];
+        if (!rowEl || !Array.isArray(fb)) return;
+        const inputs = rowEl.querySelectorAll('input');
+        fb.forEach((cell, idx) => {
+          const input = inputs[idx];
+          if (!input) return;
+          input.value = cell.letter || '';
+          input.disabled = true;
+          input.tabIndex = -1;
+          const cellEl = input.parentElement;
+          if (!cellEl) return;
+          cellEl.classList.remove('gray', 'yellow', 'green', 'active');
+          if (cell.status) {
+            cellEl.classList.add(cell.status);
+          }
+        });
+      });
+    }
+  }
+  keyStatuses = {};
+  guessHistory.forEach(entry => {
+    if (!entry) return;
+    const payload = wordCount === 1 ? [entry.feedback] : entry.feedback;
+    updateKeyboardFromFeedbackMulti(payload);
+  });
+  if (gameFinished || attempts >= maxAttempts) {
+    disableActiveAttemptInputs();
+  } else if (wordCount > 1) {
+    enforceSolvedLocksOnActiveAttempt();
+  }
+}
+
+function disableActiveAttemptInputs() {
+  if (!board) return;
+  if (wordCount > 1) {
+    const block = board.children[attempts];
+    if (!block) return;
+    block.querySelectorAll('input').forEach(inp => {
+      inp.disabled = true;
+      inp.tabIndex = -1;
+    });
+    return;
+  }
+  const inputs = getRowInputs(attempts);
+  inputs.forEach(inp => {
+    inp.disabled = true;
+    inp.tabIndex = -1;
+  });
+}
+
+function enforceSolvedLocksOnActiveAttempt() {
+  if (wordCount <= 1 || !board) return;
+  const block = board.children[attempts];
+  if (!block) return;
+  const rows = block.querySelectorAll('.row');
+  rows.forEach((rowEl, idx) => {
+    if (solvedWords[idx]) {
+      applySolvedSnapshotToRow(rowEl, idx, { populateLetters: true });
+    }
+  });
+}
+
+function attemptResumeFromStorage({ mode = gameMode, lang = currentLang } = {}) {
+  const saved = loadPersistedGame(mode, lang);
+  if (!saved || !saved.gameId) {
+    return false;
+  }
+  gameId = saved.gameId;
+  gameMode = saved.mode || mode;
+  maxAttempts = Number.isFinite(saved.maxAttempts) ? saved.maxAttempts : maxAttempts;
+  wordCount = Number.isFinite(saved.wordCount) ? saved.wordCount : wordCount;
+  guessHistory = Array.isArray(saved.guessHistory) ? saved.guessHistory : [];
+  attempts = Number.isFinite(saved.attempts) ? saved.attempts : guessHistory.length;
+  if (attempts < guessHistory.length) {
+    attempts = guessHistory.length;
+  }
+  currentStatusText = saved.statusText || '';
+  gameFinished = !!saved.gameFinished;
+  lastGameResult = saved.lastGameResult || null;
+  document.title = saved.titleText || 'MuskiGuess';
+  keyStatuses = {};
+  recomputeSolvedStateFromHistory();
+  renderBoard();
+  applyHistoryToBoard();
+  if (currentStatusText) {
+    setStatus(currentStatusText);
+  } else {
+    setStatus(`Tentativa ${Math.min(attempts + 1, maxAttempts)} de ${maxAttempts}`);
+  }
+  if (saved.overlayVisible && saved.correctWord) {
+    showOverlay(saved.correctWord);
+  } else {
+    hideOverlay();
+  }
+  if (!gameFinished && attempts < maxAttempts) {
+    currentCol = 0;
+    ensureFocusCurrent();
+  }
+  return true;
+}
+
 function setStatus(text) { 
+  currentStatusText = typeof text === 'string' ? text : (text ? String(text) : '');
   if (statusEl) statusEl.textContent = text; 
 }
 
@@ -375,7 +644,11 @@ function getStatusColor(status) {
   return keyColorPalette[status] || DEFAULT_STATUS_COLORS[status] || 'transparent';
 }
 
-async function newGame() {
+async function newGame(options = {}) {
+  const { resetStorage = false } = options || {};
+  if (resetStorage) {
+    clearPersistedGame(gameMode, currentLang);
+  }
   // Fade out da página inteira
   if (appRoot) {
     appRoot.style.transition = 'opacity 0.3s ease';
@@ -414,6 +687,10 @@ async function newGame() {
     secretRevealed = false;
     muskiActivated = false;
     hackrActivated = false;
+    gameFinished = false;
+    lastGameResult = null;
+    guessHistory = [];
+    currentStatusText = '';
 
     // Reset solvedWords for duet mode. Each index corresponds to a word in
     // duplet/multi mode. Initially, no words are solved.
@@ -475,6 +752,7 @@ async function newGame() {
   if (toast) toast.classList.add('hidden');
   if (confettiCanvas) confettiCanvas.classList.add('hidden');
   document.title = 'MuskiGuess';
+  persistState();
   
   // Fade in da página inteira
   if (appRoot) {
@@ -1017,6 +1295,8 @@ async function submitCurrentRow() {
 }
 
 async function sendGuess(guess) {
+  const attemptIndex = attempts;
+  const upperGuess = (guess || '').toUpperCase();
   const res = await fetch('/api/guess', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ gameId, guess })
@@ -1027,13 +1307,21 @@ async function sendGuess(guess) {
     shakeScreen(); // Tremor para erro do servidor
     return; 
   }
+
+  let storedFeedback = [];
   
   if (wordCount === 1) {
-    const row = board.children[attempts];
+    const row = board.children[attemptIndex];
     await revealRowWithAnimation(row, data.feedback);
     updateKeyboardFromFeedbackMulti([data.feedback]);
+    if (Array.isArray(data.feedback)) {
+      storedFeedback = data.feedback.map(item => ({
+        letter: item.letter,
+        status: item.status,
+      }));
+    }
   } else {
-    const block = board.children[attempts];
+    const block = board.children[attemptIndex];
     const rowsInBlock = Array.from(block.querySelectorAll('.row'));
     const previouslySolved = solvedWords.slice();
     // Start both row reveals concurrently, skipping already-solved words
@@ -1063,9 +1351,28 @@ async function sendGuess(guess) {
       return fb || [];
     });
     updateKeyboardFromFeedbackMulti(sanitizedFeedback);
+    storedFeedback = sanitizedFeedback.map(fb => Array.isArray(fb)
+      ? fb.map(item => ({
+          letter: item.letter,
+          status: item.status,
+        }))
+      : []
+    );
   }
   
+  guessHistory[attemptIndex] = {
+    guess: upperGuess,
+    feedback: storedFeedback,
+  };
+
   attempts = data.attempts;
+  const resolvedCorrectWord = data.correctWord || (Array.isArray(data.correctWords) ? data.correctWords.join(' / ') : '');
+  gameFinished = !!(data.won || data.gameOver);
+  lastGameResult = {
+    won: !!data.won,
+    gameOver: !!data.gameOver,
+    correctWord: resolvedCorrectWord,
+  };
   if (data.won) {
     const totalAllowed = typeof data.maxAttempts === 'number' ? data.maxAttempts : maxAttempts;
     const isLastAttempt = typeof totalAllowed === 'number' && totalAllowed > 0
@@ -1077,12 +1384,12 @@ async function sendGuess(guess) {
     showToast(winMessage);
   } else if (data.gameOver) {
     setStatus('Fim de jogo!');
-    const cw = data.correctWord || (Array.isArray(data.correctWords) ? data.correctWords.join(' / ') : '');
-    showOverlay(cw);
+    showOverlay(resolvedCorrectWord);
   } else {
     enableNextRow();
     setStatus(`Tentativa ${attempts + 1} de ${maxAttempts}`);
   }
+  persistState();
 }
 
 async function revealRowWithAnimation(row, feedback) {
@@ -1240,17 +1547,23 @@ function chooseLang(lang) {
   console.log('gameId atual:', gameId);
   console.log('attempts atual:', attempts);
   console.log('maxAttempts atual:', maxAttempts);
-  
+  const previousLang = currentLang;
   currentLang = lang;
   if (langOverlay) {
     hideSideOverlay('lang');
     console.log('Overlay de idioma escondido');
   }
   applyLanguage();
+  if (lang && lang !== previousLang) {
+    if (previousLang) {
+      clearPersistedGamesForLanguage(previousLang);
+    }
+    clearPersistedGamesForLanguage(lang);
+  }
   
   // Sempre iniciar novo jogo, independente de ter jogo ativo ou não
   console.log('Iniciando novo jogo com idioma:', lang);
-  newGame();
+  newGame({ resetStorage: true });
 }
 
 // Função para inicializar todos os event listeners
@@ -1259,14 +1572,14 @@ function initEventListeners() {
   
   // Event listeners dos botões principais
   if (newGameBtn) {
-    newGameBtn.addEventListener('click', newGame);
+    newGameBtn.addEventListener('click', () => newGame({ resetStorage: true }));
     console.log('Botão novo jogo configurado');
   } else {
     console.log('ERRO: newGameBtn não encontrado!');
   }
   
   if (playAgainBtn) {
-    playAgainBtn.addEventListener('click', () => { newGame(); });
+    playAgainBtn.addEventListener('click', () => { newGame({ resetStorage: true }); });
     console.log('Botão jogar novamente configurado');
   } else {
     console.log('ERRO: playAgainBtn não encontrado!');
@@ -1390,7 +1703,21 @@ function initEventListeners() {
 // Inicializar quando o DOM estiver carregado
 document.addEventListener('DOMContentLoaded', function() {
   console.log('DOM carregado, iniciando...');
-  
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const sharedCode = params.get('code');
+    if (sharedCode && typeof sharedCode === 'string' && sharedCode.trim()) {
+      const normalized = sharedCode.trim().toUpperCase();
+      const target = `/multiplayer?code=${encodeURIComponent(normalized)}`;
+      if (window.location.pathname !== '/multiplayer') {
+        window.location.replace(target);
+        return;
+      }
+    }
+  } catch (err) {
+    console.warn('Falha ao processar parametro de sala na URL:', err);
+  }
+
   // Inicializar elementos DOM
   initDOMElements();
   console.log('Elementos DOM inicializados');
@@ -1414,8 +1741,13 @@ document.addEventListener('DOMContentLoaded', function() {
   applyLanguage();
   console.log('Idioma aplicado');
 
-  // Iniciar jogo imediatamente
-  newGame();
+  // Iniciar jogo imediatamente ou retomar caso haja cache
+  const resumed = attemptResumeFromStorage({ mode: gameMode, lang: currentLang });
+  if (resumed) {
+    persistState();
+  } else {
+    newGame();
+  }
 
   console.log('Inicialização completa');
 });
