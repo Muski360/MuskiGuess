@@ -64,7 +64,7 @@ try:
             word = line.strip().lower()
             if len(word) == 5:
                 portuguese_words.add(word)
-    print(f"Carregadas {len(portuguese_words)} palavras portuguesas")
+    print(f"Carregadas {len(portuguese_words)} portuguesas")
 except FileNotFoundError:
     print(f"Arquivo {file_path_pt} não encontrado")
 except Exception as e:
@@ -79,7 +79,7 @@ try:
             word = line.strip().lower()
             if len(word) == 5:
                 english_words.add(word)
-    print(f"Carregadas {len(english_words)} palavras inglesas")
+    print(f"Carregadas {len(english_words)} inglesas")
 except FileNotFoundError:
     print(f"Arquivo {file_path_en} não encontrado")
 except Exception as e:

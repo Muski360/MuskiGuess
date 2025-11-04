@@ -56,6 +56,28 @@ body.mp-theme-light {
     box-sizing: border-box;
 }
 
+html.lenis {
+    height: auto;
+}
+
+.lenis.lenis-smooth {
+    scroll-behavior: auto;
+}
+
+.lenis.lenis-stopped {
+    overflow: hidden;
+}
+
+.lenis.lenis-scrolling iframe {
+    pointer-events: none;
+}
+
+[data-parallax-factor] {
+    --parallax-offset: 0px;
+    transform: translate3d(0, var(--parallax-offset), 0);
+    will-change: transform;
+}
+
 body {
     margin: 0;
     min-height: 100vh;
