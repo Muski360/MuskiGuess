@@ -55,7 +55,7 @@
     }
 
     const lenis = new window.Lenis({
-      duration: 1.1,
+      duration: 0.4,
       easing: (t) => 1 - Math.pow(1 - t, 4), // easeOutQuart for gentle inertia
       direction: 'vertical',
       gestureDirection: 'vertical',
