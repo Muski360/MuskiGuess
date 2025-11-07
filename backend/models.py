@@ -94,16 +94,6 @@ class Stats(db.Model):
     __table_args__ = (
         UniqueConstraint("user_id", "mode", name="uq_stats_user_mode"),
         CheckConstraint("num_wins <= num_games", name="chk_wins_not_exceed_games"),
-        CheckConstraint(
-            "("
-            "  (mode = 'multiplayer' AND num_multiplayer_games IS NOT NULL "
-            "   AND num_multiplayer_wins IS NOT NULL)"
-            "  OR "
-            "  (mode <> 'multiplayer' AND num_multiplayer_games IS NULL "
-            "   AND num_multiplayer_wins IS NULL)"
-            ")",
-            name="chk_multiplayer_fields",
-        ),
     )
 
     def to_dict(self) -> Dict[str, int]:
