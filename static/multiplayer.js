@@ -98,6 +98,7 @@
   let countdownResolve = null;
   // When host clicks Play Again, auto-start next match after reset
   let pendingAutoStart = false;
+  let statsSyncedForMatch = false;
 
   const MAX_ATTEMPTS_FALLBACK = 6;
 
@@ -869,6 +870,10 @@
     }
     openModal(title, message);
     applyHostControls();
+    if (!payload?.cancelled && !statsSyncedForMatch && window.auth && typeof window.auth.refreshStats === 'function') {
+      statsSyncedForMatch = true;
+      window.auth.refreshStats(true);
+    }
     // If this client initiated Play Again and is host, immediately start next match
     if (pendingAutoStart && state.isHost && state.roomCode) {
       const rounds = selectedRounds();
@@ -884,6 +889,7 @@
     state.roomStatus = 'lobby';
     state.roundNumber = 0;
     state.roundActive = false;
+    statsSyncedForMatch = false;
     guessForm?.classList.add('hidden');
     setGuessInputsEnabled(false, { focus: false });
     hideRoundResultOverlay();
@@ -1343,6 +1349,7 @@
   socket.on('match_started', () => {
     if (statusMessageEl) statusMessageEl.textContent = 'Partida iniciada!';
     showToast('Partida iniciada!');
+    statsSyncedForMatch = false;
   });
   socket.on('round_started', handleRoundStarted);
   socket.on('guess_result', handleGuessResult);

@@ -56,6 +56,16 @@ let guessHistory = [];
 let currentStatusText = '';
 let gameFinished = false;
 let lastGameResult = null;
+let statsSynced = false;
+
+function isExternalTextInputActive() {
+  const active = document.activeElement;
+  if (!active) return false;
+  const isTextField =
+    active.matches?.('input, textarea, select') || active.isContentEditable;
+  if (!isTextField) return false;
+  return !active.closest('#board');
+}
 if (document.body) {
   document.body.setAttribute('data-game-mode', pendingAppMode);
 }
@@ -282,6 +292,9 @@ window.addEventListener('resize', resizeCanvas);
 
 // Garantir foco no input ativo após seleções/cliques fora
 document.addEventListener('selectionchange', () => {
+  if (isExternalTextInputActive()) {
+    return;
+  }
   // Se o foco não está em um input da linha ativa, re-focar
   const active = document.activeElement;
   const inputs = getRowInputs(attempts) || [];
@@ -291,11 +304,17 @@ document.addEventListener('selectionchange', () => {
 });
 
 document.addEventListener('mouseup', () => {
+  if (isExternalTextInputActive()) {
+    return;
+  }
   // Após clicar fora, recupere o foco
   setTimeout(ensureFocusCurrent, 0);
 });
 
 document.addEventListener('keydown', (e) => {
+  if (isExternalTextInputActive()) {
+    return;
+  }
   // Se usuário começa a digitar e não há foco, recupere-o
   if (/^[a-zA-Zçãõáéíóúàèìòùâêîôû]$/.test(e.key)) {
     const active = document.activeElement;
@@ -689,6 +708,7 @@ async function newGame(options = {}) {
     hackrActivated = false;
     gameFinished = false;
     lastGameResult = null;
+    statsSynced = false;
     guessHistory = [];
     currentStatusText = '';
 
@@ -1388,6 +1408,10 @@ async function sendGuess(guess) {
   } else {
     enableNextRow();
     setStatus(`Tentativa ${attempts + 1} de ${maxAttempts}`);
+  }
+  if (gameFinished && !statsSynced && window.auth && typeof window.auth.refreshStats === 'function') {
+    statsSynced = true;
+    window.auth.refreshStats(true);
   }
   persistState();
 }

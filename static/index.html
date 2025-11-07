@@ -15,12 +15,16 @@
 </head>
 <body>
     <div class="app" id="appRoot">
-        <nav class="mode-menu" aria-label="Game modes">
-          <button id="menuClassic" class="menu-item active" data-mode="single">Clássico</button>
-          <button id="menuDuplet" class="menu-item" data-mode="duet">Dupleto</button>
-          <button id="menuQuaplet" class="menu-item" data-mode="quaplet">Quapleto</button>
-          <button id="menuMultiplayer" class="menu-item">Multiplayer</button>
-        </nav>
+        <div class="top-bar">
+          <nav class="mode-menu" aria-label="Game modes">
+            <button id="menuClassic" class="menu-item active" data-mode="single">Clássico</button>
+            <button id="menuDuplet" class="menu-item" data-mode="duet">Dupleto</button>
+            <button id="menuQuaplet" class="menu-item" data-mode="quaplet">Quapleto</button>
+            <button id="menuMultiplayer" class="menu-item">Multiplayer</button>
+          </nav>
+          <div id="authControls" class="auth-controls"></div>
+        </div>
+
         <div class="logo-container">
             <img id="logoImage" src="static/images/Logo_noBackground.png" alt="MuskiGuess Logo" class="logo-image" />
         </div>
@@ -150,6 +154,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@1.0.35/dist/lenis.min.js"></script>
     <script defer src="/static/smooth-scroll.js"></script>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="/static/auth.js"></script>
     <script src="/static/main.js"></script>
 </body>
 </html>

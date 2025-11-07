@@ -1,16 +1,23 @@
 from eventlet import monkey_patch
+
 monkey_patch()
 
 import os
 import random
 import string
 import time
-from uuid import uuid4
 from pathlib import Path
+from uuid import uuid4
 
-from flask import Flask, jsonify, request
+from dotenv import load_dotenv
+from flask import Flask, jsonify, request, session
 from flask_socketio import SocketIO, emit, join_room, leave_room
 
+from auth_routes import auth_bp
+from database import db
+from models import GameMode
+from stats_routes import stats_bp
+from stats_service import record_multiplayer_match, record_singleplayer_result
 from termo import Termo
 from words import get_random_word
 
@@ -32,7 +39,33 @@ DATA_DIR = BASE_DIR / "data"
 
 # === ⚙️ Criação do app Flask ===
 app = Flask(__name__, static_folder=str(STATIC_DIR), template_folder=str(STATIC_DIR))
+
+load_dotenv(ROOT_DIR / "db.env")
+load_dotenv(ROOT_DIR / ".env")
+
+database_url = os.environ.get("DATABASE_URL")
+if not database_url:
+    raise RuntimeError(
+        "DATABASE_URL não está definido. Configure db.env ou exporte a variável."
+    )
+
+app.config.update(
+    SECRET_KEY=os.environ.get("SECRET_KEY", "change-me-in-production"),
+    SQLALCHEMY_DATABASE_URI=database_url,
+    SQLALCHEMY_TRACK_MODIFICATIONS=False,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE=os.environ.get("SESSION_COOKIE_SAMESITE", "Lax"),
+)
+
+db.init_app(app)
+
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+app.register_blueprint(auth_bp)
+app.register_blueprint(stats_bp)
+
+with app.app_context():
+    db.create_all()
 
 games = {}
 next_game_id = 1
@@ -123,6 +156,42 @@ def _generate_room_code(length: int = 5) -> str:
         code = ''.join(random.choice(alphabet) for _ in range(length))
         if code not in multiplayer_rooms:
             return code
+
+
+def _resolve_stats_mode(mode: str, word_count: int) -> GameMode:
+    normalized = (mode or "").lower()
+    if normalized in {"duet", "dupleto"} or word_count == 2:
+        return GameMode.DUPLETO
+    if normalized in {"quaplet", "quapleto"} or word_count >= 4:
+        return GameMode.QUAPLETO
+    return GameMode.CLASSIC
+
+
+def _game_meta(game):
+    if isinstance(game, Termo):
+        meta = getattr(game, "meta", None)
+        if meta is None:
+            meta = {}
+            setattr(game, "meta", meta)
+        return meta
+    if isinstance(game, dict):
+        meta = game.get("meta")
+        if meta is None:
+            meta = {}
+            game["meta"] = meta
+        return meta
+    return {}
+
+
+def _record_singleplayer_stats_if_needed(game, won: bool):
+    meta = _game_meta(game)
+    if not meta or meta.get("stats_recorded"):
+        return
+    user_id = meta.get("user_id")
+    mode = meta.get("mode")
+    if user_id and isinstance(mode, GameMode):
+        record_singleplayer_result(user_id, mode, bool(won))
+    meta["stats_recorded"] = True
 
 
 def _sanitize_player_name(name: str) -> str:
@@ -297,6 +366,17 @@ def _finish_match(room: dict, *, winner_ids=None, cancelled: bool = False):
         },
         to=room["code"],
     )
+    if not cancelled and not room.get("stats_recorded"):
+        winner_set = set(winner_ids or [])
+        participants = []
+        for player in room.get("players", {}).values():
+            user_id = player.get("user_id")
+            if not user_id:
+                continue
+            participants.append((int(user_id), player["id"] in winner_set))
+        if participants:
+            record_multiplayer_match(participants)
+            room["stats_recorded"] = True
     _broadcast_room_state(room)
 
 
@@ -410,6 +490,7 @@ def _remove_player_from_room(code: str, sid: str, *, notify: bool = True):
         room["round_started_at"] = None
         room["tiebreaker_active"] = False
         room["current_round_tiebreaker"] = False
+        room["stats_recorded"] = False
         return
     _ensure_host(room)
     if room["status"] == "playing" and len(room["players"]) < MIN_PLAYERS_PER_ROOM:
@@ -433,12 +514,14 @@ def handle_create_room(data):
     join_room(code)
     player_id = uuid4().hex
     player_room_index[sid] = code
+    user_id = session.get("user_id")
     player = {
         "id": player_id,
         "name": name,
         "score": 0,
         "attempts": 0,
         "joined_at": time.time(),
+        "user_id": user_id,
     }
     multiplayer_rooms[code] = {
         "code": code,
@@ -463,6 +546,7 @@ def handle_create_room(data):
         "match_history": [],
         "last_activity": time.time(),
         "empty_since": None,
+        "stats_recorded": False,
     }
     _touch_room(multiplayer_rooms[code])
     emit(
@@ -502,12 +586,14 @@ def handle_join_room_event(data):
     join_room(code)
     player_id = uuid4().hex
     player_room_index[sid] = code
+    user_id = session.get("user_id")
     player = {
         "id": player_id,
         "name": name,
         "score": 0,
         "attempts": 0,
         "joined_at": time.time(),
+        "user_id": user_id,
     }
     room["players"][sid] = player
     _touch_room(room)
@@ -599,6 +685,7 @@ def handle_start_game(data):
     room["tiebreaker_active"] = False
     room["current_round_tiebreaker"] = False
     room["match_history"] = []
+    room["stats_recorded"] = False
     for player in room["players"].values():
         player["score"] = 0
         player["attempts"] = 0
@@ -725,6 +812,7 @@ def handle_play_again(data):
     room["round_complete"] = True
     room["round_draw"] = False
     room["match_history"] = []
+    room["stats_recorded"] = False
     for player in room["players"].values():
         player["score"] = 0
         player["attempts"] = 0
@@ -756,6 +844,8 @@ def new_game():
     word_count = int(data.get("wordCount") or (1 if mode == 'single' else 2))
     # default attempts: 6 for single, 7 for multi
     max_attempts = int(data.get("maxAttempts") or (6 if word_count == 1 else 7))
+    stats_mode = _resolve_stats_mode(mode, word_count)
+    user_id = session.get("user_id")
 
     game_id = str(next_game_id)
     next_game_id += 1
@@ -765,6 +855,14 @@ def new_game():
         word = get_random_word(lang)
         game = Termo(word)
         game.max_attempts = max_attempts
+        meta = _game_meta(game)
+        meta.update(
+            {
+                "mode": stats_mode,
+                "user_id": user_id,
+                "stats_recorded": False,
+            }
+        )
         games[game_id] = game
         return jsonify({
             "gameId": game_id,
@@ -784,6 +882,11 @@ def new_game():
         "max_attempts": max_attempts,
         "won_mask": [False] * word_count,
         "startedAt": None,
+        "meta": {
+            "mode": stats_mode,
+            "user_id": user_id,
+            "stats_recorded": False,
+        },
     }
     return jsonify({
         "gameId": game_id,
@@ -834,6 +937,7 @@ def make_guess():
         }
         if game_over:
             response["correctWords"] = correct_words_upper
+            _record_singleplayer_stats_if_needed(game, won_all)
         return jsonify(response)
 
     # Single game path (Termo)
@@ -851,6 +955,8 @@ def make_guess():
     }
     if won or game_over:
         response["correctWord"] = game.word.upper()
+    if game_over:
+        _record_singleplayer_stats_if_needed(game, won)
     return jsonify(response)
 
 @app.get("/api/peek")
