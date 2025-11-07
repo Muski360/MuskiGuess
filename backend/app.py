@@ -10,7 +10,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, session
+from flask import Flask, jsonify, redirect, request, session
 from flask_socketio import SocketIO, emit, join_room, leave_room
 
 from auth_routes import auth_bp
@@ -173,12 +173,14 @@ def _game_meta(game):
         if meta is None:
             meta = {}
             setattr(game, "meta", meta)
+        meta.setdefault("cheat_used", False)
         return meta
     if isinstance(game, dict):
         meta = game.get("meta")
         if meta is None:
             meta = {}
             game["meta"] = meta
+        meta.setdefault("cheat_used", False)
         return meta
     return {}
 
@@ -186,6 +188,9 @@ def _game_meta(game):
 def _record_singleplayer_stats_if_needed(game, won: bool):
     meta = _game_meta(game)
     if not meta or meta.get("stats_recorded"):
+        return
+    if meta.get("cheat_used") and won:
+        meta["stats_recorded"] = True
         return
     user_id = meta.get("user_id")
     mode = meta.get("mode")
@@ -199,6 +204,18 @@ def _sanitize_player_name(name: str) -> str:
     if not cleaned:
         cleaned = "Jogador"
     return cleaned[:20]
+
+
+def _require_multiplayer_login(sid: str | None = None) -> bool:
+    if session.get("user_id"):
+        return True
+    target = sid or request.sid
+    emit(
+        "room_error",
+        {"error": "Faça login para jogar o multiplayer."},
+        to=target,
+    )
+    return False
 
 
 def _scoreboard_snapshot(room: dict) -> list:
@@ -503,7 +520,12 @@ def _remove_player_from_room(code: str, sid: str, *, notify: bool = True):
 def handle_create_room(data):
     payload = data or {}
     sid = request.sid
+    if not _require_multiplayer_login(sid):
+        return
     name = _sanitize_player_name(payload.get("name"))
+    username = session.get("username")
+    if username:
+        name = username
     rounds = payload.get("rounds")
     if rounds not in {1, 3, 5, 10, 15}:
         rounds = 3
@@ -567,8 +589,13 @@ def handle_create_room(data):
 def handle_join_room_event(data):
     payload = data or {}
     sid = request.sid
+    if not _require_multiplayer_login(sid):
+        return
     code = (payload.get("code") or "").strip().upper()
     name = _sanitize_player_name(payload.get("name"))
+    username = session.get("username")
+    if username:
+        name = username
     resume_requested = bool(payload.get("resume"))
     if not code or code not in multiplayer_rooms:
         emit("room_error", {"error": "Sala n�o encontrada."}, to=sid)
@@ -620,6 +647,8 @@ def handle_join_room_event(data):
 def handle_update_settings(data):
     payload = data or {}
     sid = request.sid
+    if not _require_multiplayer_login(sid):
+        return
     code = (payload.get("code") or "").strip().upper()
     room = multiplayer_rooms.get(code)
     if not room or sid != room.get("host_sid"):
@@ -657,6 +686,8 @@ def handle_update_settings(data):
 def handle_start_game(data):
     payload = data or {}
     sid = request.sid
+    if not _require_multiplayer_login(sid):
+        return
     code = (payload.get("code") or "").strip().upper()
     room = multiplayer_rooms.get(code)
     if not room:
@@ -707,6 +738,8 @@ def handle_start_game(data):
 def handle_submit_guess(data):
     payload = data or {}
     sid = request.sid
+    if not _require_multiplayer_login(sid):
+        return
     code = (payload.get("code") or "").strip().upper()
     guess = (payload.get("guess") or "").strip().lower()
     room = multiplayer_rooms.get(code)
@@ -785,6 +818,8 @@ def handle_leave_room_event(data):
 def handle_play_again(data):
     payload = data or {}
     sid = request.sid
+    if not _require_multiplayer_login(sid):
+        return
     code = (payload.get("code") or "").strip().upper()
     room = multiplayer_rooms.get(code)
     if not room:
@@ -861,6 +896,7 @@ def new_game():
                 "mode": stats_mode,
                 "user_id": user_id,
                 "stats_recorded": False,
+                "cheat_used": False,
             }
         )
         games[game_id] = game
@@ -886,6 +922,7 @@ def new_game():
             "mode": stats_mode,
             "user_id": user_id,
             "stats_recorded": False,
+            "cheat_used": False,
         },
     }
     return jsonify({
@@ -965,6 +1002,8 @@ def peek_correct_word():
     if not game_id or game_id not in games:
         return jsonify({"error": "Jogo não encontrado"}), 404
     game = games[game_id]
+    meta = _game_meta(game)
+    meta["cheat_used"] = True
     if isinstance(game, dict) and game.get("type") == "multi":
         return jsonify({"correctWords": [w.upper() for w in game["words"]]})
     return jsonify({"correctWord": game.word.upper()})
@@ -1003,6 +1042,8 @@ def index_modes():
 
 @app.route("/multiplayer")
 def multiplayer_page():
+    if not session.get("user_id"):
+        return redirect("/?auth=multiplayer")
     return app.send_static_file("multiplayer.html")
 
 if __name__ == "__main__":

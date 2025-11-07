@@ -45,10 +45,14 @@
                     <h2>Jogue com seus amigos</h2>
                     <p class="mp-subtitle">Crie uma sala privada ou entre com um c&oacute;digo existente.</p>
                     <div class="mp-form">
-                        <label class="mp-field">
+                        <label class="mp-field" id="displayNameField">
                             <span>Seu nome</span>
                             <input type="text" id="displayNameInput" maxlength="16" placeholder="Apelido" />
                         </label>
+                        <div class="mp-field mp-static-name hidden" id="displayNameStatic">
+                            <span>Voc&ecirc; est&aacute; jogando como</span>
+                            <div class="mp-static-pill" id="displayNameValue">-</div>
+                        </div>
                         <label class="mp-field" id="roomCodeField">
                             <span>C&oacute;digo da sala</span>
                             <input type="text" id="roomCodeInput" maxlength="6" placeholder="Ex: AB12CD" />
@@ -58,6 +62,7 @@
                             <button id="joinRoomBtn" type="button" class="mp-secondary">Entrar na sala</button>
                         </div>
                         <p class="mp-hint">Os c&oacute;digos s&atilde;o gerados automaticamente. Cada sala suporta at&eacute; 6 jogadores.</p>
+                        <p class="mp-alert mp-alert-warning hidden" id="loginRequiredNotice">Entre na sua conta para criar ou entrar em salas multiplayer.</p>
                     </div>
                 </div>
                 <div id="instructionsCard">

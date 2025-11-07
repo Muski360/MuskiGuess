@@ -81,6 +81,7 @@ def register():
     session.clear()
     session.permanent = True
     session["user_id"] = new_user.id
+    session["username"] = new_user.username
     return jsonify({"user": new_user.to_public_dict()}), 201
 
 
@@ -99,12 +100,14 @@ def login():
     session.clear()
     session.permanent = True
     session["user_id"] = user.id
+    session["username"] = user.username
     return jsonify({"user": user.to_public_dict()}), 200
 
 
 @auth_bp.post("/logout")
 def logout():
     session.pop("user_id", None)
+    session.pop("username", None)
     session.permanent = False
     return jsonify({"success": True}), 200
 

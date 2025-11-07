@@ -57,6 +57,8 @@ let currentStatusText = '';
 let gameFinished = false;
 let lastGameResult = null;
 let statsSynced = false;
+let authState = { loggedIn: false, user: null };
+let themePaletteLocked = true;
 
 function isExternalTextInputActive() {
   const active = document.activeElement;
@@ -81,7 +83,50 @@ let keyboardEl, langWorldBtn;
 let menuClassicBtn, menuDupletBtn, menuQuapletBtn, menuMultiplayerBtn;
 let infoBtn, infoOverlay, infoCloseBtn, infoTitle, infoText, githubText;
 let logoImage;
+let themeContainer;
 let activeSideOverlay = null;
+
+function requireLoginForFeature(message) {
+  showToast(message || 'Faça login para continuar.');
+  if (window.auth?.openLogin) {
+    window.auth.openLogin();
+  }
+}
+
+function handleAuthSnapshot(snapshot) {
+  authState.loggedIn = !!(snapshot && snapshot.user);
+  authState.user = snapshot?.user || null;
+  themePaletteLocked = !authState.loggedIn;
+  refreshRestrictedUI();
+}
+
+function refreshRestrictedUI() {
+  if (document.body) {
+    document.body.classList.toggle('auth-guest', !authState.loggedIn);
+    document.body.classList.toggle('auth-user', authState.loggedIn);
+    document.body.classList.toggle('theme-locked', themePaletteLocked);
+  }
+  const multiBtn = menuMultiplayerBtn || document.getElementById('menuMultiplayer');
+  if (multiBtn) {
+    multiBtn.classList.toggle('locked', !authState.loggedIn);
+  }
+  const container = themeContainer || document.querySelector('.theme-container');
+  if (container) {
+    container.classList.toggle('locked', themePaletteLocked);
+  }
+}
+
+function initAuthIntegration() {
+  if (!window.auth) {
+    handleAuthSnapshot({ user: null });
+    return;
+  }
+  const initialUser = typeof window.auth.getUser === 'function' ? window.auth.getUser() : null;
+  handleAuthSnapshot({ user: initialUser });
+  if (typeof window.auth.onAuthChange === 'function') {
+    window.auth.onAuthChange(handleAuthSnapshot);
+  }
+}
 
 // Routing helpers: reflect mode in URL and set mode from URL
 function pathForMode(mode) {
@@ -196,10 +241,7 @@ function initDOMElements() {
   menuDupletBtn = document.getElementById('menuDuplet');
   menuQuapletBtn = document.getElementById('menuQuaplet');
   menuMultiplayerBtn = document.getElementById('menuMultiplayer');
-  if (menuMultiplayerBtn) {
-    menuMultiplayerBtn.classList.remove('disabled');
-    menuMultiplayerBtn.removeAttribute('disabled');
-  }
+  themeContainer = document.querySelector('.theme-container');
   infoBtn = document.getElementById('infoBtn');
   infoOverlay = document.getElementById('infoOverlay');
   infoCloseBtn = document.getElementById('infoCloseBtn');
@@ -1636,9 +1678,7 @@ function initEventListeners() {
   const themeButtons = document.querySelectorAll('.theme-btn');
   themeButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      const theme = btn.dataset.theme;
-      setTheme(theme);
-      updateThemeButtons();
+      setTheme(btn.dataset.theme);
     });
   });
   updateThemeButtons();
@@ -1719,6 +1759,10 @@ function initEventListeners() {
   }
   if (menuMultiplayerBtn) {
     menuMultiplayerBtn.addEventListener('click', () => {
+      if (!authState.loggedIn) {
+        requireLoginForFeature('Faça login para jogar o multiplayer.');
+        return;
+      }
       window.location.href = '/multiplayer';
     });
   }
@@ -1727,8 +1771,9 @@ function initEventListeners() {
 // Inicializar quando o DOM estiver carregado
 document.addEventListener('DOMContentLoaded', function() {
   console.log('DOM carregado, iniciando...');
+  let params;
   try {
-    const params = new URLSearchParams(window.location.search);
+    params = new URLSearchParams(window.location.search);
     const sharedCode = params.get('code');
     if (sharedCode && typeof sharedCode === 'string' && sharedCode.trim()) {
       const normalized = sharedCode.trim().toUpperCase();
@@ -1741,9 +1786,16 @@ document.addEventListener('DOMContentLoaded', function() {
   } catch (err) {
     console.warn('Falha ao processar parametro de sala na URL:', err);
   }
+  if (params) {
+    const authGate = params.get('auth');
+    if (authGate === 'multiplayer' && (!window.auth || !window.auth.isLoggedIn?.())) {
+      requireLoginForFeature('Faça login para jogar o multiplayer.');
+    }
+  }
 
   // Inicializar elementos DOM
   initDOMElements();
+  initAuthIntegration();
   console.log('Elementos DOM inicializados');
   
   // Inicializar event listeners
@@ -2183,8 +2235,21 @@ function switchTheme() {
 }
 
 function setTheme(themeName) {
+  if (!themeName || !themes[themeName]) {
+    return false;
+  }
+  const isResetToDefault = themeName === 'blue';
+  if (themePaletteLocked && themeName !== currentTheme && !isResetToDefault) {
+    requireLoginForFeature('Faça login para personalizar as cores.');
+    return false;
+  }
+  if (currentTheme === themeName) {
+    return false;
+  }
   currentTheme = themeName;
   applyTheme();
+  updateThemeButtons();
+  return true;
 }
 
 function updateThemeButtons() {

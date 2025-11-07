@@ -37,6 +37,10 @@
     players: [],
     displayName: '',
   };
+  let authState = {
+    loggedIn: window.auth?.isLoggedIn?.() ?? false,
+    user: window.auth?.getUser?.() ?? null,
+  };
 
   const boards = new Map();
   let toastTimeout = null;
@@ -55,9 +59,13 @@
   const hostPanel = document.getElementById('hostPanel');
 
   const displayNameInput = document.getElementById('displayNameInput');
+  const displayNameField = document.getElementById('displayNameField');
+  const displayNameStatic = document.getElementById('displayNameStatic');
+  const displayNameValue = document.getElementById('displayNameValue');
   const roomCodeInput = document.getElementById('roomCodeInput');
   const createRoomBtn = document.getElementById('createRoomBtn');
   const joinRoomBtn = document.getElementById('joinRoomBtn');
+  const loginRequiredNotice = document.getElementById('loginRequiredNotice');
 
   const leaveRoomBtn = document.getElementById('leaveRoomBtn');
   const roomCodeWrap = document.getElementById('roomCodeWrap');
@@ -108,6 +116,62 @@
 
   function sanitizeCode(code) {
     return (code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  }
+
+  function getEffectiveDisplayName() {
+    if (authState.loggedIn && authState.user?.username) {
+      return sanitizeName(authState.user.username);
+    }
+    return sanitizeName(displayNameInput?.value);
+  }
+
+  function updateDisplayNameUI() {
+    const loggedIn = authState.loggedIn && authState.user?.username;
+    if (loggedIn) {
+      const username = authState.user.username;
+      if (displayNameField) displayNameField.classList.add('hidden');
+      if (displayNameStatic) displayNameStatic.classList.remove('hidden');
+      if (displayNameValue) displayNameValue.textContent = username;
+      if (displayNameInput) {
+        displayNameInput.value = username;
+        displayNameInput.setAttribute('disabled', 'disabled');
+      }
+      state.displayName = sanitizeName(username);
+    } else {
+      if (displayNameField) displayNameField.classList.remove('hidden');
+      if (displayNameStatic) displayNameStatic.classList.add('hidden');
+      if (displayNameValue) displayNameValue.textContent = '';
+      displayNameInput?.removeAttribute('disabled');
+      state.displayName = '';
+    }
+  }
+
+  function handleAuthSnapshot(snapshot) {
+    authState.loggedIn = !!(snapshot && snapshot.user);
+    authState.user = snapshot?.user || null;
+    updateDisplayNameUI();
+    if (loginRequiredNotice) {
+      loginRequiredNotice.classList.toggle('hidden', authState.loggedIn);
+    }
+  }
+
+  function initAuthIntegration() {
+    if (!window.auth) {
+      handleAuthSnapshot({ user: null });
+      return;
+    }
+    const initialUser = typeof window.auth.getUser === 'function' ? window.auth.getUser() : null;
+    handleAuthSnapshot({ user: initialUser });
+    if (typeof window.auth.onAuthChange === 'function') {
+      window.auth.onAuthChange(handleAuthSnapshot);
+    }
+  }
+
+  function requireLoginForMultiplayerFeature() {
+    showToast('Faça login para acessar o multiplayer.');
+    if (window.auth?.openLogin) {
+      window.auth.openLogin();
+    }
   }
 
   function showToast(message, options = {}) {
@@ -222,6 +286,10 @@
 
   function showNamePrompt(code, presetName = '') {
     if (!namePromptOverlay || !namePromptInput) return;
+    if (authState.loggedIn && authState.user?.username) {
+      performJoin(code, authState.user.username);
+      return;
+    }
     pendingJoinCode = sanitizeCode(code);
     autoJoinRequested = false;
     namePromptOverlay.dataset.code = pendingJoinCode;
@@ -282,18 +350,22 @@
       const session = loadRoomSession();
       const codeParam = sanitizeCode(params.get('code') || '');
       if (!codeParam) {
-        if (session?.name && displayNameInput && !displayNameInput.value) {
-          displayNameInput.value = session.name;
-        }
-        return;
+      if (session?.name && displayNameInput && !displayNameInput.value) {
+        displayNameInput.value = session.name;
       }
-      if (session && session.code === codeParam && session.name) {
-        performJoin(codeParam, session.name);
-        return;
-      }
-      const presetName = session?.name || state.displayName || (displayNameInput?.value || '');
-      showNamePrompt(codeParam, presetName);
-    } catch (err) {
+      return;
+    }
+    if (session && session.code === codeParam && session.name) {
+      performJoin(codeParam, session.name);
+      return;
+    }
+    if (authState.loggedIn && authState.user?.username) {
+      performJoin(codeParam, authState.user.username);
+      return;
+    }
+    const presetName = session?.name || state.displayName || (displayNameInput?.value || '');
+    showNamePrompt(codeParam, presetName);
+  } catch (err) {
       console.warn('Nao foi possivel processar o codigo da URL:', err);
     }
   }
@@ -1021,12 +1093,16 @@
       showToast('Multiplayer indisponivel. Reinicie com o servidor ativo.');
       return;
     }
+    if (!authState.loggedIn) {
+      requireLoginForMultiplayerFeature();
+      return;
+    }
     if (!socketConnectionEstablished && typeof socket.connect === 'function') {
       socket.connect();
       showToast('Conectando ao servidor... tente novamente em instantes.');
       return;
     }
-    const name = sanitizeName(displayNameInput?.value);
+    const name = getEffectiveDisplayName();
     if (!name) {
       showToast('Informe um nome para jogar.');
       displayNameInput?.focus();
@@ -1049,12 +1125,16 @@
       showToast('Multiplayer indisponivel. Reinicie com o servidor ativo.');
       return;
     }
+    if (!authState.loggedIn) {
+      requireLoginForMultiplayerFeature();
+      return;
+    }
     if (!socketConnectionEstablished && typeof socket.connect === 'function') {
       socket.connect();
       showToast('Conectando ao servidor... tente novamente em instantes.');
       return;
     }
-    const name = sanitizeName(displayNameInput?.value);
+    const name = getEffectiveDisplayName();
     if (!name) {
       showToast('Informe um nome para jogar.');
       displayNameInput?.focus();
@@ -1278,12 +1358,18 @@
 
   namePromptConfirm?.addEventListener('click', () => {
     if (!namePromptOverlay) return;
-    const code = namePromptOverlay.dataset.code || pendingJoinCode || '';
-    const nameValue = namePromptInput?.value || '';
-    const sanitizedName = sanitizeName(nameValue);
+    const code = sanitizeCode(namePromptOverlay.dataset.code || pendingJoinCode || '');
+    let sanitizedName = sanitizeName(namePromptInput?.value || '');
+    if (authState.loggedIn && authState.user?.username) {
+      sanitizedName = sanitizeName(authState.user.username);
+    }
     if (!sanitizedName) {
       showToast('Informe um nome para jogar.');
       namePromptInput?.focus();
+      return;
+    }
+    if (!code) {
+      showToast('Informe um código válido.');
       return;
     }
     hideNamePrompt();
@@ -1407,6 +1493,7 @@
     }
   });
 
+  initAuthIntegration();
   toggleViews(false);
   updateAttemptsInfo();
   updateLobbyStatus();

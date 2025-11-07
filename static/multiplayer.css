@@ -629,6 +629,33 @@ body.mp-theme-light .mp-field select:focus {
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
 }
 
+.mp-static-pill {
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    padding: 10px 16px;
+    font-weight: 600;
+    color: var(--text);
+    background: rgba(56, 189, 248, 0.15);
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 44px;
+}
+
+.mp-alert {
+    margin-top: 12px;
+    border-radius: 14px;
+    padding: 10px 14px;
+    font-size: 0.9rem;
+    border: 1px solid transparent;
+}
+
+.mp-alert-warning {
+    border-color: rgba(250, 204, 21, 0.5);
+    background: rgba(250, 204, 21, 0.08);
+    color: #fde68a;
+}
+
 .mp-actions {
     display: flex;
     gap: 12px;

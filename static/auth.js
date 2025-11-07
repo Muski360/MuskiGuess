@@ -109,6 +109,10 @@
               <span>Senha</span>
               <input type="password" name="password" required minlength="8" autocomplete="new-password" />
             </label>
+            <label>
+              <span>Confirmar senha</span>
+              <input type="password" name="confirmPassword" required minlength="8" autocomplete="new-password" />
+            </label>
             <p class="auth-error" id="registerError"></p>
             <button type="submit" class="auth-primary-btn">Cadastrar</button>
           </form>
@@ -230,6 +234,11 @@
       email: formData.get('email'),
       password: formData.get('password'),
     };
+    const confirmPassword = formData.get('confirmPassword');
+    if (String(payload.password || '') !== String(confirmPassword || '')) {
+      if (errorEl) errorEl.textContent = 'As senhas não conferem.';
+      return;
+    }
     setLoading(form, true);
     try {
       const { ok, data, status } = await fetchJSON('/register', {
@@ -335,15 +344,23 @@
         entry?.num_multiplayer_losses ??
         Math.max((entry?.num_multiplayer_games || 0) - (entry?.num_multiplayer_wins || 0), 0);
 
-      row.innerHTML = `
-        <td>${escapeHtml(MODE_LABELS[entry.mode] || entry.mode || '')}</td>
-        <td>${entry?.num_games ?? 0}</td>
-        <td>${entry?.num_wins ?? 0}</td>
-        <td>${losses}</td>
-        <td>${mpGames != null ? mpGames : '-'}</td>
-        <td>${mpWins != null ? mpWins : '-'}</td>
-        <td>${mpLosses != null ? mpLosses : '-'}</td>
-      `;
+      const cells = [
+        { label: 'Modo', value: escapeHtml(MODE_LABELS[entry.mode] || entry.mode || '') },
+        { label: 'Jogos', value: entry?.num_games ?? 0 },
+        { label: 'Vitórias', value: entry?.num_wins ?? 0 },
+        { label: 'Derrotas', value: losses },
+        { label: 'Multiplayer Jogos', value: mpGames != null ? mpGames : '—' },
+        { label: 'Multiplayer Vitórias', value: mpWins != null ? mpWins : '—' },
+        { label: 'Multiplayer Derrotas', value: mpLosses != null ? mpLosses : '—' },
+      ];
+
+      cells.forEach((cell) => {
+        const td = document.createElement('td');
+        td.dataset.label = cell.label;
+        td.textContent = cell.value;
+        row.appendChild(td);
+      });
+
       refs.statsBody.appendChild(row);
     });
   }
@@ -471,4 +488,3 @@
     },
   };
 })();
-
