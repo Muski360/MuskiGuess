@@ -86,19 +86,22 @@ BOT_ROUND_START_GRACE_SECONDS = 3.2
 DEFAULT_BOT_DIFFICULTY = "medium"
 BOT_DIFFICULTY_PRESETS = {
     "easy": {
-        "delay_range": (3.2, 5.0),
-        "filter_accuracy": 0.55,
-        "wild_guess_chance": 0.15,
+        "delay_range": (3.0, 5.0),
+        "smart_pick_chance": 0.65,
+        "wild_guess_chance": 0.2,
+        "late_focus_step": 0.12,
     },
     "medium": {
-        "delay_range": (2.0, 4.0),
-        "filter_accuracy": 0.8,
-        "wild_guess_chance": 0.05,
+        "delay_range": (1.8, 3.4),
+        "smart_pick_chance": 0.88,
+        "wild_guess_chance": 0.08,
+        "late_focus_step": 0.18,
     },
     "hard": {
-        "delay_range": (1.6, 3.0),
-        "filter_accuracy": 1.0,
+        "delay_range": (1.4, 2.6),
+        "smart_pick_chance": 1.0,
         "wild_guess_chance": 0.0,
+        "late_focus_step": 0.35,
     },
 }
 BOT_NAME_POOL = [
@@ -280,6 +283,40 @@ def _bot_word_pool(lang: str) -> list:
     return list(get_word_list(lang))
 
 
+def _ensure_bot_knowledge(meta: dict) -> dict:
+    knowledge = meta.setdefault("knowledge", {})
+    knowledge.setdefault("banned", set())
+    knowledge.setdefault("present", set())
+    return knowledge
+
+
+def _apply_knowledge_filter(words: list[str], knowledge: dict) -> list[str]:
+    if not words:
+        return []
+    banned = knowledge.get("banned")
+    if not banned:
+        return list(words)
+    banned = set(banned)
+    return [word for word in words if all(letter not in banned for letter in word)]
+
+
+def _update_bot_knowledge(knowledge: dict, feedback: list[dict]):
+    if not feedback:
+        return
+    letter_statuses: dict[str, list[str]] = {}
+    for item in feedback:
+        letter = item["letter"].lower()
+        status = item["status"]
+        letter_statuses.setdefault(letter, []).append(status)
+        if status in {"green", "yellow"}:
+            knowledge["present"].add(letter)
+    for letter, statuses in letter_statuses.items():
+        if letter in knowledge["present"]:
+            continue
+        if all(status == "gray" for status in statuses):
+            knowledge["banned"].add(letter)
+
+
 def _normalize_bot_difficulty(value: str | None) -> str:
     if not value:
         return DEFAULT_BOT_DIFFICULTY
@@ -347,6 +384,7 @@ def _add_bot_player(room: dict) -> dict:
         "lang": room.get("lang", "pt"),
         "difficulty": _normalize_bot_difficulty(room.get("bot_difficulty")),
         "round_grace_until": None,
+        "knowledge": {"banned": set(), "present": set()},
     }
     return bot_sid, player
 
@@ -364,6 +402,9 @@ def _launch_bots_for_round(room: dict):
         meta["used"] = set()
         meta["difficulty"] = _normalize_bot_difficulty(room.get("bot_difficulty"))
         meta["round_grace_until"] = room.get("bot_round_grace_until")
+        knowledge = _ensure_bot_knowledge(meta)
+        knowledge["banned"].clear()
+        knowledge["present"].clear()
         _stop_bot_task(room, bot_sid)
         meta["task"] = socketio.start_background_task(_bot_worker, room["code"], bot_sid)
 
@@ -422,22 +463,39 @@ def _select_bot_guess(room: dict, bot_sid: str) -> str | None:
     if not meta:
         return None
     lang = meta.get("lang") or room.get("lang", "pt")
-    candidates = meta.get("candidates")
-    if not candidates:
-        candidates = _bot_word_pool(lang)
-    used = meta.setdefault("used", set())
     preset = _bot_preset_for(meta, room)
-    pool = candidates
-    wild_chance = max(0.0, min(1.0, preset.get("wild_guess_chance", 0.0)))
-    if random.random() < wild_chance:
-        pool = _bot_word_pool(lang)
-    pool = [word for word in pool if word not in used]
+    knowledge = _ensure_bot_knowledge(meta)
+    strict_candidates = meta.get("candidates")
+    if not strict_candidates:
+        strict_candidates = _apply_knowledge_filter(_bot_word_pool(lang), knowledge)
+        meta["candidates"] = strict_candidates[:]
+    used = meta.setdefault("used", set())
+    player = room["players"].get(bot_sid) if bot_sid in room["players"] else None
+    attempts = player["attempts"] if player else 0
+    smart_pick_chance = preset.get("smart_pick_chance", 1.0)
+    late_focus_step = max(0.0, preset.get("late_focus_step", 0.0))
+    if attempts >= 4 and late_focus_step > 0:
+        smart_pick_chance = min(1.0, smart_pick_chance + (attempts - 3) * late_focus_step)
+    smart_pick_chance = max(0.0, min(1.0, smart_pick_chance))
+    wild_guess_chance = max(0.0, preset.get("wild_guess_chance", 0.0))
+    if attempts >= 4 and late_focus_step > 0:
+        wild_guess_chance = max(0.0, wild_guess_chance - (attempts - 3) * late_focus_step * 0.5)
+    strict_pool = [word for word in strict_candidates if word not in used]
+    fallback_pool = _apply_knowledge_filter(_bot_word_pool(lang), knowledge)
+    fallback_pool = [word for word in fallback_pool if word not in used]
+    pool = strict_pool if strict_pool else fallback_pool
+    if fallback_pool and random.random() > smart_pick_chance:
+        pool = fallback_pool
+    if pool and random.random() < wild_guess_chance:
+        pool = fallback_pool or strict_pool
     if not pool:
-        pool = _bot_word_pool(lang)
         used.clear()
-        pool = [word for word in pool if word not in used] or pool
-    if not pool:
-        return None
+        strict_pool = [word for word in meta.get("candidates", []) if word not in used]
+        fallback_pool = _apply_knowledge_filter(_bot_word_pool(lang), knowledge)
+        fallback_pool = [word for word in fallback_pool if word not in used]
+        pool = strict_pool or fallback_pool
+        if not pool:
+            return None
     guess = random.choice(pool)
     used.add(guess)
     return guess
@@ -454,29 +512,17 @@ def _refine_bot_candidates(
     meta = room.get("bots", {}).get(bot_sid)
     if not meta:
         return
-    candidates = meta.get("candidates") or _bot_word_pool(room.get("lang", "pt"))
+    lang = room.get("lang", "pt")
+    candidates = meta.get("candidates") or _bot_word_pool(lang)
+    knowledge = _ensure_bot_knowledge(meta)
+    _update_bot_knowledge(knowledge, feedback)
     filtered = _filter_candidates_by_feedback(candidates, guess, feedback)
-    preset = preset or _bot_preset_for(meta, room)
-    accuracy = max(0.1, min(1.0, preset.get("filter_accuracy", 1.0)))
-    next_candidates = filtered[:]
-    if next_candidates:
-        random.shuffle(next_candidates)
-        keep_count = max(1, int(len(next_candidates) * accuracy))
-        if keep_count < len(next_candidates):
-            next_candidates = next_candidates[:keep_count]
-    noise_ratio = max(0.0, 1.0 - accuracy)
-    if noise_ratio > 0 and candidates:
-        pool = [word for word in candidates if word not in next_candidates]
-        if pool:
-            random.shuffle(pool)
-            base_size = len(next_candidates) or len(candidates)
-            extra_count = int(base_size * noise_ratio)
-            if extra_count <= 0:
-                extra_count = 1 if len(pool) > 0 else 0
-            next_candidates.extend(pool[:extra_count])
-    if not next_candidates:
-        next_candidates = candidates
-    meta["candidates"] = next_candidates
+    filtered = _apply_knowledge_filter(filtered, knowledge)
+    if not filtered:
+        filtered = _apply_knowledge_filter(_bot_word_pool(lang), knowledge)
+    if not filtered:
+        filtered = candidates
+    meta["candidates"] = filtered
 
 
 def _filter_candidates_by_feedback(candidates: list[str], guess: str, feedback: list[dict]) -> list[str]:
