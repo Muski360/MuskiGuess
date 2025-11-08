@@ -268,12 +268,6 @@ body::-webkit-scrollbar-corner {
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
-.profile-trigger:hover,
-.profile-menu.open .profile-trigger {
-  border-color: var(--accent-color);
-  box-shadow: 0 12px 36px rgba(59, 130, 246, 0.35);
-}
-
 .profile-avatar {
   width: 38px;
   height: 38px;
@@ -314,6 +308,10 @@ body::-webkit-scrollbar-corner {
   transform: rotate(45deg);
   margin-left: 6px;
   transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.profile-trigger:hover .profile-caret {
+  transform: rotate(225deg);
 }
 
 .profile-menu.open .profile-caret {
