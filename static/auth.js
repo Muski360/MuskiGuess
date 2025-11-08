@@ -409,13 +409,6 @@
       profileMenu.appendChild(trigger);
       profileMenu.appendChild(dropdown);
 
-      profileMenu.addEventListener('focusin', () => setProfileMenuOpen(profileMenu, true));
-      profileMenu.addEventListener('focusout', (event) => {
-        if (!profileMenu.contains(event.relatedTarget)) {
-          setProfileMenuOpen(profileMenu, false);
-        }
-      });
-
       trigger.addEventListener('click', (event) => {
         event.preventDefault();
         const nextState = !profileMenu.classList.contains('open');
