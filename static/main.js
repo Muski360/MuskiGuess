@@ -57,6 +57,7 @@ let currentStatusText = '';
 let gameFinished = false;
 let lastGameResult = null;
 let statsSynced = false;
+let awaitingNewGame = false;
 let authState = { loggedIn: false, user: null };
 let themePaletteLocked = true;
 
@@ -85,6 +86,7 @@ let infoBtn, infoOverlay, infoCloseBtn, infoTitle, infoText, githubText;
 let logoImage;
 let themeContainer;
 let activeSideOverlay = null;
+let controlsBar;
 
 function requireLoginForFeature(message) {
   showToast(message || 'Faça login para continuar.');
@@ -198,6 +200,7 @@ function initDOMElements() {
     console.error('Board element not found in DOM!');
   }
   statusEl = document.getElementById('status');
+  controlsBar = document.querySelector('.controls') || controlsBar;
   newGameBtn = document.getElementById('newGameBtn');
   overlay = document.getElementById('overlay');
   correctWordEl = document.getElementById('correctWord');
@@ -248,6 +251,7 @@ function initDOMElements() {
   infoTitle = document.getElementById('infoTitle');
   infoText = document.getElementById('infoText');
   githubText = document.getElementById('githubText');
+  syncControlsState();
 }
 
 function setButtonDisabled(button, disabled) {
@@ -685,12 +689,31 @@ function attemptResumeFromStorage({ mode = gameMode, lang = currentLang } = {}) 
     currentCol = 0;
     ensureFocusCurrent();
   }
+  awaitingNewGame = false;
+  syncControlsState();
   return true;
 }
 
 function setStatus(text) { 
   currentStatusText = typeof text === 'string' ? text : (text ? String(text) : '');
   if (statusEl) statusEl.textContent = text; 
+}
+
+function syncControlsState() {
+  if (!controlsBar) {
+    controlsBar = document.querySelector('.controls');
+  }
+  const shouldPrompt = !!gameFinished && !awaitingNewGame;
+  if (controlsBar) {
+    controlsBar.classList.toggle('is-finished', shouldPrompt);
+  }
+  if (statusEl) {
+    if (shouldPrompt) {
+      statusEl.setAttribute('aria-hidden', 'true');
+    } else {
+      statusEl.removeAttribute('aria-hidden');
+    }
+  }
 }
 
 function ensureKeyStatusEntry(letter) {
@@ -707,6 +730,9 @@ function getStatusColor(status) {
 
 async function newGame(options = {}) {
   const { resetStorage = false } = options || {};
+  awaitingNewGame = true;
+  syncControlsState();
+  setStatus('Preparando novo desafio...');
   if (resetStorage) {
     clearPersistedGame(gameMode, currentLang);
   }
@@ -737,6 +763,8 @@ async function newGame(options = {}) {
     const res = await fetch('/api/new-game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (!res.ok) { 
       setStatus('Erro ao criar novo jogo - servidor não respondeu'); 
+      awaitingNewGame = false;
+      syncControlsState();
       return; 
     }
     const data = await res.json();
@@ -749,10 +777,12 @@ async function newGame(options = {}) {
     muskiActivated = false;
     hackrActivated = false;
     gameFinished = false;
+    syncControlsState();
     lastGameResult = null;
     statsSynced = false;
     guessHistory = [];
     currentStatusText = '';
+    awaitingNewGame = false;
 
     // Reset solvedWords for duet mode. Each index corresponds to a word in
     // duplet/multi mode. Initially, no words are solved.
@@ -763,6 +793,8 @@ async function newGame(options = {}) {
   } catch (error) {
     console.error('Error creating new game:', error);
     setStatus('Erro de conexão com servidor');
+    awaitingNewGame = false;
+    syncControlsState();
     return;
   }
   
@@ -1430,6 +1462,7 @@ async function sendGuess(guess) {
   attempts = data.attempts;
   const resolvedCorrectWord = data.correctWord || (Array.isArray(data.correctWords) ? data.correctWords.join(' / ') : '');
   gameFinished = !!(data.won || data.gameOver);
+  syncControlsState();
   lastGameResult = {
     won: !!data.won,
     gameOver: !!data.gameOver,
@@ -2036,23 +2069,23 @@ const themes = {
   },
   orange: {
     dark: {
-      bg: '#1f0e05',
-      panel: '#2c1508',
-      text: '#ffedd5',
+      bg: '#1a0b05',
+      panel: '#261108',
+      text: '#ffe7d1',
       muted: '#fb923c',
       green: '#f97316',
       yellow: '#fb923c',
-      gray: '#475569',
-      surface: '#3b1808',
-      border: '#f97316',
-      buttonBg: 'linear-gradient(180deg, #f97316 0%, #1f0e05 100%)',
-      buttonBorder: '#f97316',
+      gray: '#9a6b52',
+      surface: '#32140a',
+      border: 'rgba(249, 115, 22, 0.35)',
+      buttonBg: 'linear-gradient(180deg, #f97316 0%, #2a1208 100%)',
+      buttonBorder: 'rgba(249, 115, 22, 0.5)',
       toastBg: '#f97316',
-      toastText: '#451a03',
+      toastText: '#431407',
       worldIcon: 'static/images/worldicon2.svg',
-      background: 'radial-gradient(1200px 600px at 10% 10%, #431407 0%, var(--bg) 60%)',
+      background: 'radial-gradient(1150px 580px at 12% 8%, rgba(249, 115, 22, 0.35) 0%, #1a0b05 65%)',
       accentColor: '#fb923c',
-      accentBg: 'rgba(249, 115, 22, 0.1)'
+      accentBg: 'rgba(249, 115, 22, 0.18)'
     },
     light: {
       bg: '#fff7ed',
@@ -2200,11 +2233,7 @@ function applyTheme() {
   document.documentElement.style.setProperty('--menu-shadow', menuShadow);
   document.documentElement.style.setProperty('--menu-hover-shadow', menuHoverShadow);
   document.documentElement.style.setProperty('--menu-focus-outline', menuFocusOutline);
-  keyColorPalette = {
-    gray: theme.gray || DEFAULT_STATUS_COLORS.gray,
-    yellow: theme.yellow || DEFAULT_STATUS_COLORS.yellow,
-    green: theme.green || DEFAULT_STATUS_COLORS.green,
-  };
+  keyColorPalette = { ...DEFAULT_STATUS_COLORS };
   
   // Aplicar ícone do mundo
   const worldIcon = document.querySelector('.world-icon');

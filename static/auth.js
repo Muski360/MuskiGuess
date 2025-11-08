@@ -409,8 +409,6 @@
       profileMenu.appendChild(trigger);
       profileMenu.appendChild(dropdown);
 
-      profileMenu.addEventListener('mouseenter', () => setProfileMenuOpen(profileMenu, true));
-      profileMenu.addEventListener('mouseleave', () => setProfileMenuOpen(profileMenu, false));
       profileMenu.addEventListener('focusin', () => setProfileMenuOpen(profileMenu, true));
       profileMenu.addEventListener('focusout', (event) => {
         if (!profileMenu.contains(event.relatedTarget)) {
