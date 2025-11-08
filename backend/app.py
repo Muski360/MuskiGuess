@@ -81,7 +81,26 @@ ROOM_IDLE_TIMEOUT = 600  # seconds
 ROOM_SWEEP_INTERVAL = 30  # seconds
 
 BOT_SID_PREFIX = "bot:"
-BOT_GUESS_DELAY_RANGE = (1.8, 3.2)
+BOT_GUESS_DELAY_RANGE = (2.0, 4.0)
+BOT_ROUND_START_GRACE_SECONDS = 3.2
+DEFAULT_BOT_DIFFICULTY = "medium"
+BOT_DIFFICULTY_PRESETS = {
+    "easy": {
+        "delay_range": (3.2, 5.0),
+        "filter_accuracy": 0.55,
+        "wild_guess_chance": 0.15,
+    },
+    "medium": {
+        "delay_range": (2.0, 4.0),
+        "filter_accuracy": 0.8,
+        "wild_guess_chance": 0.05,
+    },
+    "hard": {
+        "delay_range": (1.6, 3.0),
+        "filter_accuracy": 1.0,
+        "wild_guess_chance": 0.0,
+    },
+}
 BOT_NAME_POOL = [
     "BOT Atlas",
     "BOT Sigma",
@@ -261,6 +280,24 @@ def _bot_word_pool(lang: str) -> list:
     return list(get_word_list(lang))
 
 
+def _normalize_bot_difficulty(value: str | None) -> str:
+    if not value:
+        return DEFAULT_BOT_DIFFICULTY
+    normalized = value.lower()
+    if normalized in BOT_DIFFICULTY_PRESETS:
+        return normalized
+    return DEFAULT_BOT_DIFFICULTY
+
+
+def _bot_preset_for(meta: dict | None = None, room: dict | None = None) -> dict:
+    difficulty = DEFAULT_BOT_DIFFICULTY
+    if meta and meta.get("difficulty"):
+        difficulty = _normalize_bot_difficulty(meta["difficulty"])
+    elif room:
+        difficulty = _normalize_bot_difficulty(room.get("bot_difficulty"))
+    return BOT_DIFFICULTY_PRESETS.get(difficulty, BOT_DIFFICULTY_PRESETS[DEFAULT_BOT_DIFFICULTY])
+
+
 def _stop_bot_task(room: dict, bot_sid: str):
     bots = room.get("bots")
     if not bots:
@@ -308,6 +345,8 @@ def _add_bot_player(room: dict) -> dict:
         "candidates": [],
         "used": set(),
         "lang": room.get("lang", "pt"),
+        "difficulty": _normalize_bot_difficulty(room.get("bot_difficulty")),
+        "round_grace_until": None,
     }
     return bot_sid, player
 
@@ -323,16 +362,45 @@ def _launch_bots_for_round(room: dict):
         meta["lang"] = lang
         meta["candidates"] = _bot_word_pool(lang)
         meta["used"] = set()
+        meta["difficulty"] = _normalize_bot_difficulty(room.get("bot_difficulty"))
+        meta["round_grace_until"] = room.get("bot_round_grace_until")
         _stop_bot_task(room, bot_sid)
         meta["task"] = socketio.start_background_task(_bot_worker, room["code"], bot_sid)
 
 
 def _bot_worker(room_code: str, bot_sid: str):
     while True:
-        eventlet.sleep(random.uniform(*BOT_GUESS_DELAY_RANGE))
         room = multiplayer_rooms.get(room_code)
         if not room or room.get("status") != "playing" or room.get("round_complete"):
             return
+        meta = room.get("bots", {}).get(bot_sid)
+        preset = _bot_preset_for(meta, room)
+        delay_range = preset.get("delay_range") or BOT_GUESS_DELAY_RANGE
+        min_delay, max_delay = delay_range
+        if max_delay < min_delay:
+            min_delay, max_delay = max_delay, min_delay
+        eventlet.sleep(random.uniform(min_delay, max_delay))
+        room = multiplayer_rooms.get(room_code)
+        if not room or room.get("status") != "playing" or room.get("round_complete"):
+            return
+        meta = room.get("bots", {}).get(bot_sid)
+        preset = _bot_preset_for(meta, room)
+        if not meta:
+            return
+        grace_until = max(
+            room.get("bot_round_grace_until") or 0.0,
+            meta.get("round_grace_until") or 0.0,
+        )
+        if grace_until:
+            now = time.time()
+            if now < grace_until:
+                eventlet.sleep(grace_until - now)
+                room = multiplayer_rooms.get(room_code)
+                if not room or room.get("status") != "playing" or room.get("round_complete"):
+                    return
+                meta = room.get("bots", {}).get(bot_sid)
+                if not meta:
+                    return
         if bot_sid not in room["players"]:
             return
         player = room["players"][bot_sid]
@@ -344,7 +412,7 @@ def _bot_worker(room_code: str, bot_sid: str):
         success, feedback = _execute_guess(room, bot_sid, guess, result_target=None)
         if not success:
             return
-        _refine_bot_candidates(room, bot_sid, guess, feedback)
+        _refine_bot_candidates(room, bot_sid, guess, feedback, preset=preset)
         if room.get("round_complete"):
             return
 
@@ -358,21 +426,57 @@ def _select_bot_guess(room: dict, bot_sid: str) -> str | None:
     if not candidates:
         candidates = _bot_word_pool(lang)
     used = meta.setdefault("used", set())
-    pool = [word for word in candidates if word not in used]
+    preset = _bot_preset_for(meta, room)
+    pool = candidates
+    wild_chance = max(0.0, min(1.0, preset.get("wild_guess_chance", 0.0)))
+    if random.random() < wild_chance:
+        pool = _bot_word_pool(lang)
+    pool = [word for word in pool if word not in used]
     if not pool:
         pool = _bot_word_pool(lang)
         used.clear()
+        pool = [word for word in pool if word not in used] or pool
+    if not pool:
+        return None
     guess = random.choice(pool)
     used.add(guess)
     return guess
 
 
-def _refine_bot_candidates(room: dict, bot_sid: str, guess: str, feedback: list[dict]):
+def _refine_bot_candidates(
+    room: dict,
+    bot_sid: str,
+    guess: str,
+    feedback: list[dict],
+    *,
+    preset: dict | None = None,
+):
     meta = room.get("bots", {}).get(bot_sid)
     if not meta:
         return
     candidates = meta.get("candidates") or _bot_word_pool(room.get("lang", "pt"))
-    meta["candidates"] = _filter_candidates_by_feedback(candidates, guess, feedback)
+    filtered = _filter_candidates_by_feedback(candidates, guess, feedback)
+    preset = preset or _bot_preset_for(meta, room)
+    accuracy = max(0.1, min(1.0, preset.get("filter_accuracy", 1.0)))
+    next_candidates = filtered[:]
+    if next_candidates:
+        random.shuffle(next_candidates)
+        keep_count = max(1, int(len(next_candidates) * accuracy))
+        if keep_count < len(next_candidates):
+            next_candidates = next_candidates[:keep_count]
+    noise_ratio = max(0.0, 1.0 - accuracy)
+    if noise_ratio > 0 and candidates:
+        pool = [word for word in candidates if word not in next_candidates]
+        if pool:
+            random.shuffle(pool)
+            base_size = len(next_candidates) or len(candidates)
+            extra_count = int(base_size * noise_ratio)
+            if extra_count <= 0:
+                extra_count = 1 if len(pool) > 0 else 0
+            next_candidates.extend(pool[:extra_count])
+    if not next_candidates:
+        next_candidates = candidates
+    meta["candidates"] = next_candidates
 
 
 def _filter_candidates_by_feedback(candidates: list[str], guess: str, feedback: list[dict]) -> list[str]:
@@ -400,6 +504,7 @@ def _room_payload(room: dict) -> dict:
         "canPlayAgain": room["status"] == "finished",
         "hostId": room.get("host_player_id"),
         "language": room.get("lang", "pt"),
+        "botDifficulty": room.get("bot_difficulty", DEFAULT_BOT_DIFFICULTY),
     }
 
 
@@ -548,6 +653,7 @@ def _start_new_round(room: dict, *, is_tiebreaker: bool = False):
     room["round_winner_sid"] = None
     room["current_word"] = get_random_word(room.get("lang", "pt"))
     room["round_started_at"] = time.time()
+    room["bot_round_grace_until"] = room["round_started_at"] + BOT_ROUND_START_GRACE_SECONDS
     for player in room["players"].values():
         player["attempts"] = 0
     socketio.emit(
@@ -577,6 +683,7 @@ def _finish_match(room: dict, *, winner_ids=None, cancelled: bool = False):
     room["round_complete"] = True
     room["tiebreaker_active"] = False
     room["current_round_tiebreaker"] = False
+    room["bot_round_grace_until"] = None
     winners_payload = []
     if winner_ids:
         allowed = set(winner_ids)
@@ -801,6 +908,7 @@ def handle_create_room(data):
         "round_draw": False,
         "round_complete": True,
         "round_started_at": None,
+        "bot_round_grace_until": None,
         "players": {sid: player},
         "max_attempts": ROUND_ATTEMPTS,
         "match_history": [],
@@ -809,6 +917,7 @@ def handle_create_room(data):
         "stats_recorded": False,
         "bots": {},
         "bot_counter": 0,
+        "bot_difficulty": DEFAULT_BOT_DIFFICULTY,
     }
     _touch_room(multiplayer_rooms[code])
     emit(
@@ -819,6 +928,7 @@ def handle_create_room(data):
             "host": True,
             "roundsTarget": rounds,
             "language": lang,
+            "botDifficulty": DEFAULT_BOT_DIFFICULTY,
         },
         to=sid,
     )
@@ -872,6 +982,9 @@ def handle_join_room_event(data):
             "code": code,
             "playerId": player_id,
             "host": False,
+            "language": room.get("lang", "pt"),
+            "roundsTarget": room.get("rounds_target"),
+            "botDifficulty": room.get("bot_difficulty", DEFAULT_BOT_DIFFICULTY),
         },
         to=sid,
     )
@@ -910,6 +1023,15 @@ def handle_update_settings(data):
         if lang_code in {"pt", "en"}:
             room["lang"] = lang_code
             updated = True
+    difficulty = payload.get("difficulty")
+    if isinstance(difficulty, str):
+        normalized = _normalize_bot_difficulty(difficulty)
+        if normalized != room.get("bot_difficulty"):
+            room["bot_difficulty"] = normalized
+            bots = room.get("bots") or {}
+            for meta in bots.values():
+                meta["difficulty"] = normalized
+            updated = True
     if updated:
         _touch_room(room)
         emit(
@@ -917,6 +1039,7 @@ def handle_update_settings(data):
             {
                 "roundsTarget": room["rounds_target"],
                 "language": room["lang"],
+                "botDifficulty": room["bot_difficulty"],
             },
             to=sid,
         )
