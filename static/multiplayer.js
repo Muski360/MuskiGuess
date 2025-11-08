@@ -36,6 +36,7 @@
     roundsTarget: 3,
     players: [],
     displayName: '',
+    botDifficulty: 'medium',
   };
   let authState = {
     loggedIn: window.auth?.isLoggedIn?.() ?? false,
@@ -75,6 +76,7 @@
 
   const roundRadioGroup = document.getElementById('roundRadioGroup');
   const languageSelect = document.getElementById('languageSelect');
+  const botDifficultySelect = document.getElementById('botDifficultySelect');
   const startMatchBtn = document.getElementById('startMatchBtn');
   const playAgainBtn = document.getElementById('playAgainBtn');
   const addBotBtn = document.getElementById('addBotBtn');
@@ -804,6 +806,14 @@
     state.localAttempts = 0;
     state.language = 'pt';
     state.roundsTarget = 3;
+    state.botDifficulty = 'medium';
+    if (botDifficultySelect) {
+      botDifficultySelect.value = state.botDifficulty;
+    }
+    if (languageSelect) {
+      languageSelect.value = state.language;
+    }
+    setSelectedRounds(state.roundsTarget);
     state.players = [];
     boards.clear();
     boardsContainer && (boardsContainer.innerHTML = '');
@@ -866,6 +876,9 @@
     });
     if (languageSelect) {
       languageSelect.disabled = !hostPanelVisible;
+    }
+    if (botDifficultySelect) {
+      botDifficultySelect.disabled = !hostPanelVisible;
     }
     const enoughPlayers = state.players.length >= 2;
     if (startMatchBtn) {
@@ -1054,12 +1067,16 @@
     state.tiebreakerActive = Boolean(payload.tiebreakerActive);
     state.isHost = payload.hostId === state.playerId;
     state.language = payload.language || state.language;
+    state.botDifficulty = payload.botDifficulty || state.botDifficulty || 'medium';
     if (payload.roundsTarget) {
       setSelectedRounds(payload.roundsTarget);
     }
     renderScoreboard(payload.players || []);
     if (languageSelect) {
       languageSelect.value = state.language;
+    }
+    if (botDifficultySelect) {
+      botDifficultySelect.value = state.botDifficulty;
     }
     applyHostControls();
     updateLobbyStatus();
@@ -1093,6 +1110,10 @@
     if (payload.language) {
       state.language = payload.language;
       if (languageSelect) languageSelect.value = state.language;
+    }
+    if (payload.botDifficulty) {
+      state.botDifficulty = payload.botDifficulty;
+      if (botDifficultySelect) botDifficultySelect.value = state.botDifficulty;
     }
     showToast('Configuracoes atualizadas.');
   }
@@ -1243,8 +1264,10 @@
     state.roomStatus = 'lobby';
     state.language = payload.language || state.language || 'pt';
     state.roundsTarget = payload.roundsTarget || state.roundsTarget || 3;
+    state.botDifficulty = payload.botDifficulty || state.botDifficulty || 'medium';
     setSelectedRounds(state.roundsTarget);
     if (languageSelect) languageSelect.value = state.language;
+    if (botDifficultySelect) botDifficultySelect.value = state.botDifficulty;
     setRoomCode(state.roomCode);
     toggleViews(true);
     clearGuessInputs({ focus: false });
@@ -1267,6 +1290,13 @@
     if (payload.language) {
       state.language = payload.language;
       if (languageSelect) languageSelect.value = state.language;
+    }
+    if (payload.botDifficulty) {
+      state.botDifficulty = payload.botDifficulty;
+      if (botDifficultySelect) botDifficultySelect.value = state.botDifficulty;
+    }
+    if (payload.roundsTarget) {
+      setSelectedRounds(payload.roundsTarget);
     }
     setRoomCode(state.roomCode);
     toggleViews(true);
@@ -1333,6 +1363,15 @@
       return;
     }
     emitUpdateSettings({ lang: languageSelect.value });
+  });
+
+  botDifficultySelect?.addEventListener('change', () => {
+    if (!state.isHost) {
+      botDifficultySelect.value = state.botDifficulty;
+      showToast('Apenas o host pode alterar.');
+      return;
+    }
+    emitUpdateSettings({ difficulty: botDifficultySelect.value });
   });
 
   const savedTheme = (() => {
