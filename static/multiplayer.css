@@ -193,7 +193,7 @@ body {
 }
 
 .profile-trigger:hover,
-.profile-menu.open .profile-trigger {
+.profile-trigger {
     border-color: var(--accent);
     box-shadow: 0 12px 30px rgba(6, 182, 212, 0.35);
 }
