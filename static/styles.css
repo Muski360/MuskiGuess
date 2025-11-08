@@ -337,9 +337,7 @@ body::-webkit-scrollbar-corner {
   z-index: 2000;
 }
 
-.profile-menu.open .profile-dropdown,
-.profile-menu:hover .profile-dropdown,
-.profile-menu:focus-within .profile-dropdown {
+.profile-menu.open .profile-dropdown {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
@@ -363,6 +361,11 @@ body::-webkit-scrollbar-corner {
 .profile-action:hover {
   background: rgba(59, 130, 246, 0.12);
   color: var(--accent-color);
+}
+
+.profile-trigger:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--accent-color);
 }
 
 .auth-btn {

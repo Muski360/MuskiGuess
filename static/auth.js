@@ -409,9 +409,6 @@
       profileMenu.appendChild(trigger);
       profileMenu.appendChild(dropdown);
 
-      profileMenu.addEventListener('mouseenter', () => setProfileMenuOpen(profileMenu, true));
-      profileMenu.addEventListener('mouseleave', () => setProfileMenuOpen(profileMenu, false));
-
       trigger.addEventListener('click', (event) => {
         event.preventDefault();
         const nextState = !profileMenu.classList.contains('open');
