@@ -854,6 +854,17 @@ async function newGame(options = {}) {
   }
 }
 
+async function handleMissingGameSession(message) {
+  setStatus(message || 'Sessão expirada. Criando um novo jogo...');
+  awaitingNewGame = true;
+  syncControlsState();
+  try {
+    await newGame({ resetStorage: true });
+  } catch (error) {
+    console.error('Falha ao reiniciar sessão automaticamente:', error);
+  }
+}
+
 function getRowInputs(rowIndex) {
   // Returns the set of input elements for a given attempt row. In single
   // mode this simply returns the 5 inputs of that row. In duet/multi
@@ -1397,8 +1408,12 @@ async function sendGuess(guess) {
   });
   const data = await res.json();
   if (!res.ok) { 
-    setStatus(data.error || 'Erro ao enviar palpite'); 
-    shakeScreen(); // Tremor para erro do servidor
+    if (res.status === 404 && (data?.error || '').toLowerCase().includes('jogo')) {
+      await handleMissingGameSession('Sessão não encontrada. Criando um novo jogo...');
+    } else {
+      setStatus(data.error || 'Erro ao enviar palpite'); 
+      shakeScreen(); // Tremor para erro do servidor
+    }
     return; 
   }
 

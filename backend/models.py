@@ -27,7 +27,7 @@ class User(db.Model):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    username: Mapped[str] = mapped_column(String(12), nullable=False)
+    username: Mapped[str] = mapped_column(String(12), nullable=False, unique=True)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     reset_token: Mapped[Optional[str]] = mapped_column(String(6), nullable=True)

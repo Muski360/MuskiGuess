@@ -5,6 +5,7 @@ from typing import Dict, Optional
 
 import bcrypt
 from flask import Blueprint, jsonify, request, session
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from database import db
@@ -58,6 +59,17 @@ def register():
     errors = _validate_registration(username, email, password)
     if errors:
         return jsonify({"errors": errors}), 400
+
+    existing = User.query.filter(
+        or_(User.email == email, User.username == username)
+    ).first()
+    if existing:
+        dup_errors: Dict[str, str] = {}
+        if existing.email == email:
+            dup_errors["email"] = "Este e-mail já está registrado."
+        if existing.username == username:
+            dup_errors["username"] = "Este nome de usuário já está em uso."
+        return jsonify({"errors": dup_errors}), 409
 
     new_user = User(
         username=username,
