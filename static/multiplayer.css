@@ -961,6 +961,11 @@ body.mp-theme-light .mp-leave-btn:hover {
     background: rgba(56, 189, 248, 0.12);
 }
 
+.mp-score-item.bot {
+    border-color: rgba(234, 179, 8, 0.45);
+    background: rgba(234, 179, 8, 0.14);
+}
+
 body.mp-theme-light .mp-score-item {
     background: rgba(248, 250, 252, 0.95);
     border: 1px solid rgba(148, 163, 184, 0.4);
@@ -969,6 +974,11 @@ body.mp-theme-light .mp-score-item {
 body.mp-theme-light .mp-score-item.you {
     background: rgba(191, 219, 254, 0.45);
     border-color: rgba(59, 130, 246, 0.5);
+}
+
+body.mp-theme-light .mp-score-item.bot {
+    background: rgba(250, 204, 21, 0.22);
+    border-color: rgba(234, 179, 8, 0.45);
 }
 
 .mp-score-item.host::before {
@@ -981,6 +991,7 @@ body.mp-theme-light .mp-score-item.you {
 .mp-score-name {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 6px;
     font-weight: 600;
 }
@@ -1115,6 +1126,16 @@ body.mp-theme-light .mp-setting-label {
     box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
 }
 
+.mp-board.bot {
+    border-color: rgba(234, 179, 8, 0.45);
+    box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.2);
+}
+
+body.mp-theme-light .mp-board.bot {
+    border-color: rgba(234, 179, 8, 0.4);
+    box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.28);
+}
+
 .mp-board h3 {
     margin: 0;
     font-size: 1rem;
@@ -1127,6 +1148,27 @@ body.mp-theme-light .mp-setting-label {
 .mp-board h3 span {
     font-size: 0.8rem;
     color: var(--text-muted);
+}
+
+.mp-chip--bot {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background: rgba(234, 179, 8, 0.18);
+    border-color: rgba(234, 179, 8, 0.4);
+    color: #fcd34d;
+}
+
+body.mp-theme-light .mp-chip--bot {
+    background: rgba(234, 179, 8, 0.22);
+    border-color: rgba(234, 179, 8, 0.35);
+    color: #92400e;
 }
 
 .mp-player-tag {

@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
+import eventlet
 from dotenv import load_dotenv
 from flask import Flask, jsonify, redirect, request, session
 from flask_socketio import SocketIO, emit, join_room, leave_room
@@ -19,7 +20,7 @@ from models import GameMode
 from stats_routes import stats_bp
 from stats_service import record_multiplayer_match, record_singleplayer_result
 from termo import Termo
-from words import get_random_word
+from words import get_random_word, get_word_list
 
 
 # === 🧩 Caminhos corrigidos ===
@@ -78,6 +79,17 @@ MIN_PLAYERS_PER_ROOM = 2
 ROUND_ATTEMPTS = 6
 ROOM_IDLE_TIMEOUT = 600  # seconds
 ROOM_SWEEP_INTERVAL = 30  # seconds
+
+BOT_SID_PREFIX = "bot:"
+BOT_GUESS_DELAY_RANGE = (1.8, 3.2)
+BOT_NAME_POOL = [
+    "BOT Atlas",
+    "BOT Sigma",
+    "BOT Nexo",
+    "BOT Orion",
+    "BOT Vega",
+    "BOT Titan",
+]
 
 
 import os
@@ -226,9 +238,152 @@ def _scoreboard_snapshot(room: dict) -> list:
             "name": player["name"],
             "score": player["score"],
             "isHost": sid == room.get("host_sid"),
+            "isBot": bool(player.get("is_bot")),
         })
     players.sort(key=lambda item: (-item["score"], item["name"].lower()))
     return players
+
+
+def _is_bot_sid(sid: str | None) -> bool:
+    return isinstance(sid, str) and sid.startswith(BOT_SID_PREFIX)
+
+
+def _generate_bot_name(room: dict) -> str:
+    counter = room.setdefault("bot_counter", 0) + 1
+    room["bot_counter"] = counter
+    base = random.choice(BOT_NAME_POOL)
+    if counter <= len(BOT_NAME_POOL):
+        return base
+    return f"{base} #{counter}"
+
+
+def _bot_word_pool(lang: str) -> list:
+    return list(get_word_list(lang))
+
+
+def _stop_bot_task(room: dict, bot_sid: str):
+    bots = room.get("bots")
+    if not bots:
+        return
+    meta = bots.get(bot_sid)
+    if not meta:
+        return
+    task = meta.get("task")
+    if task:
+        try:
+            task.kill()
+        except Exception:
+            pass
+        meta["task"] = None
+
+
+def _clear_all_bots(room: dict):
+    bots = room.get("bots")
+    if not bots:
+        return
+    for bot_sid in list(bots.keys()):
+        _stop_bot_task(room, bot_sid)
+        room["players"].pop(bot_sid, None)
+        bots.pop(bot_sid, None)
+
+
+def _add_bot_player(room: dict) -> dict:
+    bot_sid = f"{BOT_SID_PREFIX}{uuid4().hex}"
+    player_id = uuid4().hex
+    bot_name = _generate_bot_name(room)
+    player = {
+        "id": player_id,
+        "name": bot_name,
+        "score": 0,
+        "attempts": 0,
+        "joined_at": time.time(),
+        "user_id": None,
+        "is_bot": True,
+    }
+    room["players"][bot_sid] = player
+    room.setdefault("bots", {})[bot_sid] = {
+        "sid": bot_sid,
+        "name": bot_name,
+        "task": None,
+        "candidates": [],
+        "used": set(),
+        "lang": room.get("lang", "pt"),
+    }
+    return bot_sid, player
+
+
+def _launch_bots_for_round(room: dict):
+    bots = room.get("bots")
+    if not bots:
+        return
+    lang = room.get("lang", "pt")
+    for bot_sid, meta in list(bots.items()):
+        if bot_sid not in room["players"]:
+            continue
+        meta["lang"] = lang
+        meta["candidates"] = _bot_word_pool(lang)
+        meta["used"] = set()
+        _stop_bot_task(room, bot_sid)
+        meta["task"] = socketio.start_background_task(_bot_worker, room["code"], bot_sid)
+
+
+def _bot_worker(room_code: str, bot_sid: str):
+    while True:
+        eventlet.sleep(random.uniform(*BOT_GUESS_DELAY_RANGE))
+        room = multiplayer_rooms.get(room_code)
+        if not room or room.get("status") != "playing" or room.get("round_complete"):
+            return
+        if bot_sid not in room["players"]:
+            return
+        player = room["players"][bot_sid]
+        if player["attempts"] >= room.get("max_attempts", ROUND_ATTEMPTS):
+            return
+        guess = _select_bot_guess(room, bot_sid)
+        if not guess:
+            return
+        success, feedback = _execute_guess(room, bot_sid, guess, result_target=None)
+        if not success:
+            return
+        _refine_bot_candidates(room, bot_sid, guess, feedback)
+        if room.get("round_complete"):
+            return
+
+
+def _select_bot_guess(room: dict, bot_sid: str) -> str | None:
+    meta = room.get("bots", {}).get(bot_sid)
+    if not meta:
+        return None
+    lang = meta.get("lang") or room.get("lang", "pt")
+    candidates = meta.get("candidates")
+    if not candidates:
+        candidates = _bot_word_pool(lang)
+    used = meta.setdefault("used", set())
+    pool = [word for word in candidates if word not in used]
+    if not pool:
+        pool = _bot_word_pool(lang)
+        used.clear()
+    guess = random.choice(pool)
+    used.add(guess)
+    return guess
+
+
+def _refine_bot_candidates(room: dict, bot_sid: str, guess: str, feedback: list[dict]):
+    meta = room.get("bots", {}).get(bot_sid)
+    if not meta:
+        return
+    candidates = meta.get("candidates") or _bot_word_pool(room.get("lang", "pt"))
+    meta["candidates"] = _filter_candidates_by_feedback(candidates, guess, feedback)
+
+
+def _filter_candidates_by_feedback(candidates: list[str], guess: str, feedback: list[dict]) -> list[str]:
+    filtered = []
+    guess_lower = guess.lower()
+    target_statuses = [item["status"] for item in feedback]
+    for word in candidates:
+        statuses = _check_guess_statuses_for_word(word, guess_lower)
+        if all(statuses[i]["status"] == target_statuses[i] for i in range(5)):
+            filtered.append(word)
+    return filtered or candidates
 
 
 def _room_payload(room: dict) -> dict:
@@ -263,15 +418,31 @@ def _ensure_host(room: dict):
         room["host_sid"] = None
         room["host_player_id"] = None
         return
-    if room.get("host_sid") in room["players"]:
+    current_host_sid = room.get("host_sid")
+    if current_host_sid in room["players"] and not room["players"][current_host_sid].get("is_bot"):
         return
-    new_sid, new_player = min(
+    sorted_players = sorted(
         room["players"].items(),
         key=lambda item: item[1].get("joined_at", time.time())
     )
-    room["host_sid"] = new_sid
-    room["host_player_id"] = new_player["id"]
-    socketio.emit("host_change", {"playerId": new_player["id"]}, to=room["code"])
+    chosen_sid = None
+    chosen_player = None
+    for candidate_sid, candidate in sorted_players:
+        if not candidate.get("is_bot"):
+            chosen_sid = candidate_sid
+            chosen_player = candidate
+            break
+    if not chosen_player and sorted_players:
+        chosen_sid, chosen_player = sorted_players[0]
+    if not chosen_player:
+        room["host_sid"] = None
+        room["host_player_id"] = None
+        return
+    if room.get("host_sid") == chosen_sid:
+        return
+    room["host_sid"] = chosen_sid
+    room["host_player_id"] = chosen_player["id"]
+    socketio.emit("host_change", {"playerId": chosen_player["id"]}, to=room["code"])
 
 
 def _determine_leaders(room: dict) -> list:
@@ -285,6 +456,49 @@ def _all_attempts_spent(room: dict) -> bool:
     if not room["players"]:
         return False
     return all(player["attempts"] >= room["max_attempts"] for player in room["players"].values())
+
+
+def _execute_guess(room: dict, sid: str, guess: str, *, result_target: str | None = None):
+    player = room["players"].get(sid)
+    if not player:
+        return False, "Jogador inválido."
+    if player["attempts"] >= room["max_attempts"]:
+        return False, "Você já usou todas as tentativas."
+    guess_lc = guess.lower()
+    player["attempts"] += 1
+    feedback = _check_guess_statuses_for_word(room["current_word"], guess_lc)
+    result_payload = {
+        "playerId": player["id"],
+        "guess": guess.upper(),
+        "feedback": feedback,
+        "attempt": player["attempts"],
+        "maxAttempts": room["max_attempts"],
+        "roundNumber": room.get("round_index", 0),
+    }
+    if result_target:
+        socketio.emit("guess_result", result_payload, to=result_target)
+    peer_payload = {
+        "playerId": player["id"],
+        "attempt": player["attempts"],
+        "feedback": [item["status"] for item in feedback],
+        "roundNumber": room.get("round_index", 0),
+    }
+    emit_kwargs = {"to": room["code"]}
+    if result_target:
+        emit_kwargs["skip_sid"] = result_target
+    socketio.emit("peer_guess", peer_payload, **emit_kwargs)
+    if all(item["status"] == "green" for item in feedback):
+        room["round_winner_sid"] = sid
+        player["score"] += 1
+        _broadcast_room_state(room)
+        _finalize_round(room, winner_sid=sid, was_draw=False)
+        return True, feedback
+    if _all_attempts_spent(room):
+        _broadcast_room_state(room)
+        _finalize_round(room, winner_sid=None, was_draw=True)
+    else:
+        _broadcast_room_state(room)
+    return True, feedback
 
 
 def _queue_round_transition(code: str, action: str, delay: float = 3.0):
@@ -349,6 +563,7 @@ def _start_new_round(room: dict, *, is_tiebreaker: bool = False):
         to=room["code"],
     )
     _broadcast_room_state(room)
+    _launch_bots_for_round(room)
 
 
 def _finish_match(room: dict, *, winner_ids=None, cancelled: bool = False):
@@ -374,10 +589,11 @@ def _finish_match(room: dict, *, winner_ids=None, cancelled: bool = False):
                         "score": player["score"],
                     }
                 )
+    scoreboard_snapshot = _scoreboard_snapshot(room)
     socketio.emit(
         "match_over",
         {
-            "scoreboard": _scoreboard_snapshot(room),
+            "scoreboard": scoreboard_snapshot,
             "winners": winners_payload,
             "cancelled": cancelled,
         },
@@ -394,6 +610,7 @@ def _finish_match(room: dict, *, winner_ids=None, cancelled: bool = False):
         if participants:
             record_multiplayer_match(participants)
             room["stats_recorded"] = True
+    _clear_all_bots(room)
     _broadcast_room_state(room)
 
 
@@ -488,11 +705,16 @@ def _remove_player_from_room(code: str, sid: str, *, notify: bool = True):
     player = room["players"].pop(sid, None)
     if not player:
         return
-    leave_room(code)
+    was_bot = bool(player.get("is_bot"))
+    if was_bot:
+        _stop_bot_task(room, sid)
+        room.get("bots", {}).pop(sid, None)
+    else:
+        leave_room(code)
     if notify:
         socketio.emit(
             "player_left",
-            {"playerId": player["id"], "name": player["name"]},
+            {"playerId": player["id"], "name": player["name"], "bot": was_bot},
             to=code,
         )
     _touch_room(room)
@@ -508,6 +730,21 @@ def _remove_player_from_room(code: str, sid: str, *, notify: bool = True):
         room["tiebreaker_active"] = False
         room["current_round_tiebreaker"] = False
         room["stats_recorded"] = False
+        return
+    if not any(not pl.get("is_bot") for pl in room["players"].values()):
+        _clear_all_bots(room)
+        room["host_sid"] = None
+        room["host_player_id"] = None
+        room["empty_since"] = time.time()
+        room["status"] = "lobby"
+        room["current_word"] = None
+        room["round_complete"] = True
+        room["round_draw"] = False
+        room["round_started_at"] = None
+        room["tiebreaker_active"] = False
+        room["current_round_tiebreaker"] = False
+        room["stats_recorded"] = False
+        _broadcast_room_state(room)
         return
     _ensure_host(room)
     if room["status"] == "playing" and len(room["players"]) < MIN_PLAYERS_PER_ROOM:
@@ -544,6 +781,7 @@ def handle_create_room(data):
         "attempts": 0,
         "joined_at": time.time(),
         "user_id": user_id,
+        "is_bot": False,
     }
     multiplayer_rooms[code] = {
         "code": code,
@@ -569,6 +807,8 @@ def handle_create_room(data):
         "last_activity": time.time(),
         "empty_since": None,
         "stats_recorded": False,
+        "bots": {},
+        "bot_counter": 0,
     }
     _touch_room(multiplayer_rooms[code])
     emit(
@@ -621,6 +861,7 @@ def handle_join_room_event(data):
         "attempts": 0,
         "joined_at": time.time(),
         "user_id": user_id,
+        "is_bot": False,
     }
     room["players"][sid] = player
     _touch_room(room)
@@ -636,7 +877,7 @@ def handle_join_room_event(data):
     )
     socketio.emit(
         "player_joined",
-        {"playerId": player_id, "name": name},
+        {"playerId": player_id, "name": name, "bot": False},
         to=code,
         skip_sid=sid,
     )
@@ -680,6 +921,37 @@ def handle_update_settings(data):
             to=sid,
         )
         _broadcast_room_state(room)
+
+
+@socketio.on("add_bot")
+def handle_add_bot(data):
+    payload = data or {}
+    sid = request.sid
+    if not _require_multiplayer_login(sid):
+        return
+    code = (payload.get("code") or "").strip().upper()
+    room = multiplayer_rooms.get(code)
+    if not room:
+        emit("room_error", {"error": "Sala não encontrada."}, to=sid)
+        return
+    if room["status"] != "lobby":
+        emit("room_error", {"error": "Adicione bots apenas no lobby."}, to=sid)
+        return
+    if sid != room.get("host_sid"):
+        emit("room_error", {"error": "Apenas o criador pode adicionar bots."}, to=sid)
+        return
+    if len(room["players"]) >= MAX_PLAYERS_PER_ROOM:
+        emit("room_error", {"error": "Sala cheia."}, to=sid)
+        return
+    bot_sid, bot_player = _add_bot_player(room)
+    room["empty_since"] = None
+    _touch_room(room)
+    socketio.emit(
+        "player_joined",
+        {"playerId": bot_player["id"], "name": bot_player["name"], "bot": True},
+        to=room["code"],
+    )
+    _broadcast_room_state(room)
 
 
 @socketio.on("start_game")
@@ -740,66 +1012,29 @@ def handle_submit_guess(data):
     sid = request.sid
     if not _require_multiplayer_login(sid):
         return
-    code = (payload.get("code") or "").strip().upper()
-    guess = (payload.get("guess") or "").strip().lower()
+    code = (payload.get('code') or '').strip().upper()
+    guess = (payload.get('guess') or '').strip().lower()
     room = multiplayer_rooms.get(code)
-    if not room or sid not in room["players"]:
-        emit("guess_error", {"error": "Sala ou jogador invǭlido."}, to=sid)
+    if not room or sid not in room['players']:
+        emit('guess_error', {'error': 'Sala ou jogador inválido.'}, to=sid)
         return
-    if room["status"] != "playing" or not room.get("current_word"):
-        emit("guess_error", {"error": "A rodada ainda n�o estǭ ativa."}, to=sid)
+    if room['status'] != 'playing' or not room.get('current_word'):
+        emit('guess_error', {'error': 'A rodada ainda não está ativa.'}, to=sid)
         return
-    if room.get("round_complete"):
-        emit("guess_error", {"error": "Aguardando pr���xima rodada."}, to=sid)
+    if room.get('round_complete'):
+        emit('guess_error', {'error': 'Aguardando próxima rodada.'}, to=sid)
         return
     if len(guess) != 5 or not guess.isalpha():
-        emit("guess_error", {"error": "Informe uma palavra de 5 letras."}, to=sid)
+        emit('guess_error', {'error': 'Informe uma palavra de 5 letras.'}, to=sid)
         return
-    lang = room.get("lang", "pt")
+    lang = room.get('lang', 'pt')
     if not _word_exists_in_lang(guess, lang):
-        emit("guess_error", {"error": "Palavra n�o reconhecida na lista selecionada."}, to=sid)
+        emit('guess_error', {'error': 'Palavra não reconhecida na lista selecionada.'}, to=sid)
         return
-    player = room["players"][sid]
     _touch_room(room)
-    if player["attempts"] >= room["max_attempts"]:
-        emit("guess_error", {"error": "Voc� jǭ usou todas as tentativas."}, to=sid)
-        return
-    player["attempts"] += 1
-    feedback = _check_guess_statuses_for_word(room["current_word"], guess)
-    emit(
-        "guess_result",
-        {
-            "playerId": player["id"],
-            "guess": guess.upper(),
-            "feedback": feedback,
-            "attempt": player["attempts"],
-            "maxAttempts": room["max_attempts"],
-            "roundNumber": room.get("round_index", 0),
-        },
-        to=sid,
-    )
-    socketio.emit(
-        "peer_guess",
-        {
-            "playerId": player["id"],
-            "attempt": player["attempts"],
-            "feedback": [item["status"] for item in feedback],
-            "roundNumber": room.get("round_index", 0),
-        },
-        to=code,
-        skip_sid=sid,
-    )
-    if all(item["status"] == 'green' for item in feedback):
-        room["round_winner_sid"] = sid
-        player["score"] += 1
-        _broadcast_room_state(room)
-        _finalize_round(room, winner_sid=sid, was_draw=False)
-        return
-    if _all_attempts_spent(room):
-        _broadcast_room_state(room)
-        _finalize_round(room, winner_sid=None, was_draw=True)
-    else:
-        _broadcast_room_state(room)
+    success, result = _execute_guess(room, sid, guess, result_target=sid)
+    if not success:
+        emit('guess_error', {'error': result}, to=sid)
 
 
 @socketio.on("leave_room")
@@ -836,6 +1071,8 @@ def handle_play_again(data):
         room["rounds_target"] = rounds
         room["initial_rounds"] = rounds
     _touch_room(room)
+    _clear_all_bots(room)
+    room["bots"] = room.get("bots") or {}
     room["empty_since"] = None
     room["status"] = "lobby"
     room["round_index"] = 0

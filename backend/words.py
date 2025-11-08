@@ -136,3 +136,9 @@ def get_random_word(lang: str = 'pt'):
     if (lang or '').lower() == 'en':
         return random.choice(english_words_easy)
     return random.choice(words)
+
+
+def get_word_list(lang: str = 'pt'):
+    if (lang or '').lower() == 'en':
+        return english_words_easy
+    return words

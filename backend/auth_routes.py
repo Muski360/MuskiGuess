@@ -81,7 +81,7 @@ def register():
         db.session.flush()  # Ensure we have the user id before creating stats rows
     except IntegrityError:
         db.session.rollback()
-        return jsonify({"errors": {"email": "Este e-mail já está registrado."}}), 409
+        return jsonify({"errors": {"email": "Este e-mail ou nome de usuário já está em uso."}}), 409
 
     ensure_default_stats(new_user, commit=False)
     try:

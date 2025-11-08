@@ -77,6 +77,7 @@
   const languageSelect = document.getElementById('languageSelect');
   const startMatchBtn = document.getElementById('startMatchBtn');
   const playAgainBtn = document.getElementById('playAgainBtn');
+  const addBotBtn = document.getElementById('addBotBtn');
 
   const guessForm = document.getElementById('guessForm');
   const letterGrid = document.getElementById('guessLetterGrid');
@@ -724,9 +725,11 @@
     const tags = [];
     if (player.playerId === state.playerId) tags.push('Voce');
     if (player.isHost) tags.push('Host');
+    if (player.isBot) tags.push('BOT');
     board.nameEl.textContent = player.name;
     board.tagEl.textContent = tags.join(' | ');
     board.root.classList.toggle('you', player.playerId === state.playerId);
+    board.root.classList.toggle('bot', Boolean(player.isBot));
   }
 
   function removeMissingBoards(presentIds) {
@@ -752,10 +755,19 @@
         li.className = 'mp-score-item';
         if (player.playerId === state.playerId) li.classList.add('you');
         if (player.isHost) li.classList.add('host');
+        if (player.isBot) li.classList.add('bot');
 
         const nameSpan = document.createElement('span');
         nameSpan.className = 'mp-score-name';
-        nameSpan.textContent = player.name;
+        const label = document.createElement('span');
+        label.textContent = player.name;
+        nameSpan.appendChild(label);
+        if (player.isBot) {
+          const botBadge = document.createElement('span');
+          botBadge.className = 'mp-chip mp-chip--bot';
+          botBadge.textContent = 'BOT';
+          nameSpan.appendChild(botBadge);
+        }
 
         const scoreSpan = document.createElement('span');
         scoreSpan.className = 'mp-score-points';
@@ -866,6 +878,23 @@
       playAgainBtn.classList.toggle('hidden', !showPlayAgain);
       playAgainBtn.disabled = !showPlayAgain;
     }
+    if (addBotBtn) {
+      const showAddBot = hostPanelVisible && state.roomStatus === 'lobby';
+      addBotBtn.classList.toggle('hidden', !hostPanelVisible);
+      addBotBtn.disabled = !showAddBot || state.players.length >= 6;
+    }
+  }
+
+  function handleAddBot() {
+    if (!state.isHost || !state.roomCode) {
+      showToast('Apenas o host pode adicionar bots.');
+      return;
+    }
+    if (state.players.length >= 6) {
+      showToast('Sala cheia. Não é possível adicionar mais bots.');
+      return;
+    }
+    socket.emit('add_bot', { code: state.roomCode });
   }
 
   function handleRoundStarted(payload) {
@@ -1394,6 +1423,7 @@
     }
   });
 
+  addBotBtn?.addEventListener('click', handleAddBot);
   startMatchBtn?.addEventListener('click', handleStartMatch);
   playAgainBtn?.addEventListener('click', handlePlayAgain);
   closeModalBtn?.addEventListener('click', closeModal);
@@ -1426,10 +1456,18 @@
   });
 
   socket.on('player_joined', payload => {
-    if (payload?.name) showToast(`${payload.name} entrou na sala.`);
+    if (!payload?.name) return;
+    const message = payload.bot
+      ? `[BOT] ${payload.name} foi adicionado.`
+      : `${payload.name} entrou na sala.`;
+    showToast(message);
   });
   socket.on('player_left', payload => {
-    if (payload?.name) showToast(`${payload.name} saiu da sala.`);
+    if (!payload?.name) return;
+    const message = payload.bot
+      ? `[BOT] ${payload.name} foi removido.`
+      : `${payload.name} saiu da sala.`;
+    showToast(message);
   });
 
   socket.on('match_started', () => {
