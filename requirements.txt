@@ -1,0 +1,11 @@
+flask==3.0.3
+flask-socketio==5.3.6
+python-socketio==5.11.4
+python-engineio==4.9.0
+eventlet==0.33.3
+gunicorn==22.0.0
+colorama==0.4.6
+flask-sqlalchemy==3.1.1
+psycopg2-binary==2.9.9
+bcrypt==4.1.2
+python-dotenv==1.0.1
