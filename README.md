@@ -25,26 +25,9 @@ Cada partida desafia o jogador a descobrir uma ou mais palavras secretas dentro 
 ✅ Suporte para Português e Inglês <br>
 ✅ Teclado interativo com feedback de posição <br>
 ✅ Sistema de histórico e estatísticas locais <br>
-?o. Login com estat??sticas persistentes em PostgreSQL <br>
+✅ Login com estatísticas persistentes em PostgreSQL <br>
 ✅ Tema claro e escuro com troca dinâmica <br>
 ✅ Arquitetura modular para novos modos <br>
-<br>
-
-🚀 <b>Execução local:</b>
-Atualize o arquivo <code>db.env</code> com sua string de conex?o PostgreSQL.<br>
-Execute <code>psql -f schema.sql</code> para criar as tabelas <code>users</code> e <code>stats</code> no banco escolhido.<br>
-
-<pre>
-git clone https://github.com/Muski360/MuskiGuess.git
-cd MuskiGuess
-pip install -r requirements.txt
-cd backend
-python app.py
-</pre>
-
-
-Abra http://localhost:5000
- no navegador.
 <br>
 
 👨‍💻 <b>Autor</b>

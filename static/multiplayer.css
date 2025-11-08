@@ -138,6 +138,155 @@ body {
     flex: 1 1 auto;
 }
 
+.auth-cta-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: 999px;
+    padding: 4px 8px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid var(--menu-border);
+}
+
+.auth-cta-btn {
+    border: none;
+    border-radius: 999px;
+    padding: 10px 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.3s ease;
+}
+
+.auth-cta-btn.primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    color: #fff;
+    box-shadow: 0 12px 30px rgba(6, 182, 212, 0.35);
+}
+
+.auth-cta-btn.ghost {
+    background: transparent;
+    color: var(--text);
+}
+
+.auth-cta-btn:hover {
+    transform: translateY(-1px);
+}
+
+.profile-menu {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.profile-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    border-radius: 999px;
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    background: rgba(17, 24, 39, 0.8);
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.profile-trigger:hover,
+.profile-menu.open .profile-trigger {
+    border-color: var(--accent);
+    box-shadow: 0 12px 30px rgba(6, 182, 212, 0.35);
+}
+
+.profile-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #0f172a;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.profile-label {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+}
+
+.profile-greeting {
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.profile-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.profile-caret {
+    width: 10px;
+    height: 10px;
+    border-right: 2px solid var(--text-muted);
+    border-bottom: 2px solid var(--text-muted);
+    transform: rotate(45deg);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.profile-menu.open .profile-caret {
+    transform: rotate(225deg);
+    border-color: var(--accent);
+}
+
+.profile-dropdown {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    min-width: 180px;
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    box-shadow: var(--menu-shadow);
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-10px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.profile-menu.open .profile-dropdown,
+.profile-menu:hover .profile-dropdown,
+.profile-menu:focus-within .profile-dropdown {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+
+.profile-action {
+    border: none;
+    background: transparent;
+    color: var(--text);
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.profile-action + .profile-action {
+    border-top: 1px solid var(--border);
+}
+
+.profile-action:hover {
+    background: rgba(56, 189, 248, 0.16);
+    color: var(--accent);
+}
+
 .auth-controls.auth-controls--compact {
     margin: 0;
 }
@@ -470,6 +619,17 @@ body.mp-theme-light .mp-theme-toggle {
     .mp-mode-menu .mp-menu-link {
         flex: 1 1 calc(50% - 10px);
         min-width: 0;
+    }
+    .auth-cta-group {
+        width: 100%;
+        justify-content: center;
+    }
+    .auth-cta-btn {
+        flex: 1 1 auto;
+    }
+    .profile-trigger {
+        width: 100%;
+        justify-content: space-between;
     }
 }
 

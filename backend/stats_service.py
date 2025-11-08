@@ -4,7 +4,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from flask import current_app
 from database import db
-from models import DEFAULT_GAME_MODES, GameMode, Stats
+from models import DEFAULT_GAME_MODES, GameMode, Stats, User
 
 
 def _coerce_user_id(user_or_id) -> Optional[int]:
@@ -151,3 +151,45 @@ def fetch_user_stats(user_id: int) -> List[Dict[str, int]]:
     order = {mode: index for index, mode in enumerate(DEFAULT_GAME_MODES)}
     stats.sort(key=lambda item: order.get(item.mode, len(order)))
     return [item.to_dict() for item in stats]
+
+
+LEADERBOARD_MODES: Tuple[GameMode, ...] = (
+    GameMode.TOTAL,
+    GameMode.CLASSIC,
+    GameMode.DUPLETO,
+    GameMode.QUAPLETO,
+)
+
+
+def fetch_leaderboard(limit: Optional[int] = None) -> Dict[str, object]:
+    """Return leaderboard rows (top players by wins) for the configured modes."""
+    sanitized_limit = 30
+    if isinstance(limit, int) and limit > 0:
+        sanitized_limit = max(1, min(limit, 200))
+
+    leaderboard: Dict[str, object] = {}
+    for mode in LEADERBOARD_MODES:
+        query = (
+            db.session.query(Stats, User.username)
+            .join(User, Stats.user_id == User.id)
+            .filter(Stats.mode == mode, Stats.num_wins > 0)
+            .order_by(Stats.num_wins.desc(), Stats.num_games.asc(), User.username.asc())
+            .limit(sanitized_limit)
+        )
+        rows = query.all()
+        serialized: List[Dict[str, object]] = []
+        for rank, (stats, username) in enumerate(rows, start=1):
+            num_games = stats.num_games or 0
+            num_wins = stats.num_wins or 0
+            win_rate = (num_wins / num_games * 100) if num_games else 0.0
+            serialized.append(
+                {
+                    "rank": rank,
+                    "username": username,
+                    "wins": num_wins,
+                    "games": num_games,
+                    "winRate": round(win_rate, 1) if num_games else 0.0,
+                }
+            )
+        leaderboard[mode.value] = serialized
+    return leaderboard

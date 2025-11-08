@@ -22,7 +22,13 @@
             <button id="menuQuaplet" class="menu-item" data-mode="quaplet">Quapleto</button>
             <button id="menuMultiplayer" class="menu-item">Multiplayer</button>
           </nav>
-          <div id="authControls" class="auth-controls"></div>
+          <div class="top-bar-actions">
+            <button id="leaderboardBtn" class="leaderboard-btn" type="button" aria-haspopup="dialog" title="Ver ranking de vitórias">
+              <span class="leaderboard-icon" aria-hidden="true"></span>
+              <span class="leaderboard-label">Ranking</span>
+            </button>
+            <div id="authControls" class="auth-controls"></div>
+          </div>
         </div>
 
         <div class="logo-container">
@@ -151,9 +157,32 @@
       </div>
     </div>
 
+
+
+    <div id="leaderboardModal" class="leaderboard-modal hidden" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
+      <div class="leaderboard-card">
+        <button type="button" class="leaderboard-close" aria-label="Fechar ranking" data-leaderboard-close>&times;</button>
+        <div class="leaderboard-header">
+          <div>
+            <p class="leaderboard-eyebrow">Hall da fama</p>
+            <h2 id="leaderboardTitle">Ranking de vitórias</h2>
+          </div>
+          <span id="leaderboardUpdated" class="leaderboard-updated"></span>
+        </div>
+        <div class="leaderboard-tabs" role="tablist">
+          <button class="leaderboard-tab active" data-mode="total" role="tab" aria-selected="true">Total</button>
+          <button class="leaderboard-tab" data-mode="classic" role="tab" aria-selected="false">Cl&aacute;ssico</button>
+          <button class="leaderboard-tab" data-mode="dupleto" role="tab" aria-selected="false">Dupleto</button>
+          <button class="leaderboard-tab" data-mode="quapleto" role="tab" aria-selected="false">Quapleto</button>
+        </div>
+        <div id="leaderboardStatus" class="leaderboard-status"></div>
+        <div id="leaderboardList" class="leaderboard-list" role="tabpanel" aria-live="polite"></div>
+      </div>
+    </div>
     <script defer src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@1.0.35/dist/lenis.min.js"></script>
     <script defer src="/static/smooth-scroll.js"></script>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="/static/leaderboard.js"></script>
     <script src="/static/auth.js"></script>
     <script src="/static/main.js"></script>
 </body>

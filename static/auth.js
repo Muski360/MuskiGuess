@@ -24,7 +24,42 @@
     registerForm: null,
     statsBody: null,
     statsStatus: null,
+    profileMenu: null,
   };
+
+  let activeProfileMenu = null;
+
+  function getUserInitial(user) {
+    const source = (user?.username || user?.email || '').trim();
+    return source ? source.charAt(0).toUpperCase() : '?';
+  }
+
+  function setProfileMenuOpen(menu, isOpen) {
+    if (!menu) return;
+    const trigger = menu.querySelector('[data-profile-trigger]');
+    if (isOpen) {
+      if (activeProfileMenu && activeProfileMenu !== menu) {
+        setProfileMenuOpen(activeProfileMenu, false);
+      }
+      menu.classList.add('open');
+      if (trigger) trigger.setAttribute('aria-expanded', 'true');
+      activeProfileMenu = menu;
+    } else {
+      menu.classList.remove('open');
+      if (trigger) trigger.setAttribute('aria-expanded', 'false');
+      if (activeProfileMenu === menu) {
+        activeProfileMenu = null;
+      }
+    }
+  }
+
+  function handleProfileMenuOutsideClick(event) {
+    if (!activeProfileMenu) return;
+    if (activeProfileMenu.contains(event.target)) return;
+    setProfileMenuOpen(activeProfileMenu, false);
+  }
+
+  document.addEventListener('click', handleProfileMenuOutsideClick);
 
   function escapeHtml(value) {
     return String(value || '')
@@ -53,6 +88,10 @@
   function setUser(user) {
     state.user = user;
     if (!user) {
+      if (activeProfileMenu) {
+        setProfileMenuOpen(activeProfileMenu, false);
+      }
+      refs.profileMenu = null;
       state.stats = [];
       state.statsLoaded = false;
     }
@@ -283,45 +322,114 @@
     const container = refs.controlsContainer;
     if (!container) return;
     container.innerHTML = '';
+    refs.profileMenu = null;
     const fragment = document.createDocumentFragment();
     if (!state.user) {
-      const loginBtn = document.createElement('button');
-      loginBtn.type = 'button';
-      loginBtn.className = 'auth-btn';
-      loginBtn.textContent = 'Entrar';
-      loginBtn.addEventListener('click', () => openModal(refs.loginModal));
+      const group = document.createElement('div');
+      group.className = 'auth-cta-group';
 
       const registerBtn = document.createElement('button');
       registerBtn.type = 'button';
-      registerBtn.className = 'auth-btn auth-btn-secondary';
+      registerBtn.className = 'auth-cta-btn primary';
       registerBtn.textContent = 'Criar conta';
       registerBtn.addEventListener('click', () => openModal(refs.registerModal));
 
-      fragment.appendChild(loginBtn);
-      fragment.appendChild(registerBtn);
+      const loginBtn = document.createElement('button');
+      loginBtn.type = 'button';
+      loginBtn.className = 'auth-cta-btn ghost';
+      loginBtn.textContent = 'Entrar';
+      loginBtn.addEventListener('click', () => openModal(refs.loginModal));
+
+      group.appendChild(registerBtn);
+      group.appendChild(loginBtn);
+      fragment.appendChild(group);
     } else {
-      const welcome = document.createElement('span');
-      welcome.className = 'auth-welcome';
-      welcome.innerHTML = `Bem-vindo, <strong>${escapeHtml(state.user.username || '')}</strong>`;
+      const profileMenu = document.createElement('div');
+      profileMenu.className = 'profile-menu';
 
-      const statsBtn = document.createElement('button');
-      statsBtn.type = 'button';
-      statsBtn.className = 'auth-btn auth-btn-ghost';
-      statsBtn.textContent = 'Estatísticas';
-      statsBtn.addEventListener('click', () => openStatsModal());
+      const trigger = document.createElement('button');
+      trigger.type = 'button';
+      trigger.className = 'profile-trigger';
+      trigger.dataset.profileTrigger = 'true';
+      trigger.setAttribute('aria-haspopup', 'true');
+      trigger.setAttribute('aria-expanded', 'false');
+      trigger.title = 'Abrir menu da conta';
 
-      const logoutBtn = document.createElement('button');
-      logoutBtn.type = 'button';
-      logoutBtn.className = 'auth-btn auth-btn-link';
-      logoutBtn.textContent = 'Sair';
-      logoutBtn.addEventListener('click', handleLogout);
+      const avatar = document.createElement('span');
+      avatar.className = 'profile-avatar';
+      avatar.textContent = getUserInitial(state.user);
 
-      fragment.appendChild(welcome);
-      fragment.appendChild(statsBtn);
-      fragment.appendChild(logoutBtn);
+      const label = document.createElement('span');
+      label.className = 'profile-label';
+
+      const greeting = document.createElement('span');
+      greeting.className = 'profile-greeting';
+      greeting.textContent = 'Conta';
+
+      const name = document.createElement('span');
+      name.className = 'profile-name';
+      name.textContent = state.user.username || state.user.email || 'Usuário';
+
+      label.appendChild(greeting);
+      label.appendChild(name);
+
+      const caret = document.createElement('span');
+      caret.className = 'profile-caret';
+      caret.setAttribute('aria-hidden', 'true');
+
+      trigger.appendChild(avatar);
+      trigger.appendChild(label);
+      trigger.appendChild(caret);
+
+      const dropdown = document.createElement('div');
+      dropdown.className = 'profile-dropdown';
+      dropdown.setAttribute('role', 'menu');
+
+      const statsAction = document.createElement('button');
+      statsAction.type = 'button';
+      statsAction.className = 'profile-action';
+      statsAction.textContent = 'Estatísticas';
+      statsAction.addEventListener('click', () => {
+        setProfileMenuOpen(profileMenu, false);
+        openStatsModal();
+      });
+
+      const logoutAction = document.createElement('button');
+      logoutAction.type = 'button';
+      logoutAction.className = 'profile-action';
+      logoutAction.textContent = 'Sair';
+      logoutAction.addEventListener('click', () => {
+        setProfileMenuOpen(profileMenu, false);
+        handleLogout();
+      });
+
+      dropdown.appendChild(statsAction);
+      dropdown.appendChild(logoutAction);
+
+      profileMenu.appendChild(trigger);
+      profileMenu.appendChild(dropdown);
+
+      profileMenu.addEventListener('mouseenter', () => setProfileMenuOpen(profileMenu, true));
+      profileMenu.addEventListener('mouseleave', () => setProfileMenuOpen(profileMenu, false));
+      profileMenu.addEventListener('focusin', () => setProfileMenuOpen(profileMenu, true));
+      profileMenu.addEventListener('focusout', (event) => {
+        if (!profileMenu.contains(event.relatedTarget)) {
+          setProfileMenuOpen(profileMenu, false);
+        }
+      });
+
+      trigger.addEventListener('click', (event) => {
+        event.preventDefault();
+        const nextState = !profileMenu.classList.contains('open');
+        setProfileMenuOpen(profileMenu, nextState);
+      });
+
+      refs.profileMenu = profileMenu;
+      fragment.appendChild(profileMenu);
     }
     container.appendChild(fragment);
   }
+
 
   function renderStatsTable() {
     if (!refs.statsBody) return;
