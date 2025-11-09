@@ -837,6 +837,7 @@
     pendingJoinCode = null;
     autoJoinRequested = false;
     hideNamePrompt();
+    pendingAutoStart = false;
   }
 
   function selectedRounds() {
@@ -988,13 +989,7 @@
       statsSyncedForMatch = true;
       window.auth.refreshStats(true);
     }
-    // If this client initiated Play Again and is host, immediately start next match
-    if (pendingAutoStart && state.isHost && state.roomCode) {
-      const rounds = selectedRounds();
-      const lang = languageSelect?.value || state.language;
-      pendingAutoStart = false;
-      socket.emit('start_game', { code: state.roomCode, rounds, lang });
-    } else {
+    if (payload?.cancelled) {
       pendingAutoStart = false;
     }
   }
@@ -1012,6 +1007,14 @@
     if (statusMessageEl) statusMessageEl.textContent = 'Partida reiniciada. Aguarde o inicio.';
     resetAllBoards();
     applyHostControls();
+    if (pendingAutoStart && state.isHost && state.roomCode) {
+      const rounds = selectedRounds();
+      const lang = languageSelect?.value || state.language;
+      pendingAutoStart = false;
+      socket.emit('start_game', { code: state.roomCode, rounds, lang });
+    } else if (!state.isHost) {
+      pendingAutoStart = false;
+    }
   }
 
   function applyGuessToBoard(playerId, letters, statuses) {
@@ -1065,7 +1068,11 @@
     state.roomStatus = payload.status || state.roomStatus;
     state.attemptLimit = payload.maxAttempts || state.attemptLimit || MAX_ATTEMPTS_FALLBACK;
     state.tiebreakerActive = Boolean(payload.tiebreakerActive);
+    const wasHost = state.isHost;
     state.isHost = payload.hostId === state.playerId;
+    if (wasHost && !state.isHost) {
+      pendingAutoStart = false;
+    }
     state.language = payload.language || state.language;
     state.botDifficulty = payload.botDifficulty || state.botDifficulty || 'medium';
     if (payload.roundsTarget) {
@@ -1480,7 +1487,11 @@
   socket.on('settings_updated', handleSettingsUpdated);
   socket.on('host_change', data => {
     if (!data) return;
+    const wasHost = state.isHost;
     state.isHost = data.playerId === state.playerId;
+    if (wasHost && !state.isHost) {
+      pendingAutoStart = false;
+    }
     applyHostControls();
     const player = state.players.find(p => p.playerId === data.playerId);
     if (player) {
@@ -1576,5 +1587,3 @@
   updateLobbyStatus();
   initJoinFromUrl();
 })();
-
-
