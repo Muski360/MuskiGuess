@@ -38,6 +38,11 @@
     displayName: '',
     botDifficulty: 'medium',
   };
+  const BOT_BADGE_CLASS_MAP = {
+    easy: 'mp-chip--bot-easy',
+    medium: 'mp-chip--bot-medium',
+    hard: 'mp-chip--bot-hard',
+  };
   let authState = {
     loggedIn: window.auth?.isLoggedIn?.() ?? false,
     user: window.auth?.getUser?.() ?? null,
@@ -764,12 +769,12 @@
         const label = document.createElement('span');
         label.textContent = player.name;
         nameSpan.appendChild(label);
-        if (player.isBot) {
-          const botBadge = document.createElement('span');
-          botBadge.className = 'mp-chip mp-chip--bot';
-          botBadge.textContent = 'BOT';
-          nameSpan.appendChild(botBadge);
-        }
+    if (player.isBot) {
+      const botBadge = document.createElement('span');
+      botBadge.className = `mp-chip mp-chip--bot ${botBadgeClass()}`;
+      botBadge.textContent = 'BOT';
+      nameSpan.appendChild(botBadge);
+    }
 
         const scoreSpan = document.createElement('span');
         scoreSpan.className = 'mp-score-points';
@@ -1114,6 +1119,7 @@
     if (payload.botDifficulty) {
       state.botDifficulty = payload.botDifficulty;
       if (botDifficultySelect) botDifficultySelect.value = state.botDifficulty;
+      renderScoreboard(state.players || []);
     }
     showToast('Configuracoes atualizadas.');
   }
@@ -1578,3 +1584,7 @@
 })();
 
 
+  function botBadgeClass() {
+    const diff = (state.botDifficulty || 'medium').toLowerCase();
+    return BOT_BADGE_CLASS_MAP[diff] || BOT_BADGE_CLASS_MAP.medium;
+  }

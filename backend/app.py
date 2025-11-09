@@ -86,22 +86,22 @@ BOT_ROUND_START_GRACE_SECONDS = 3.2
 DEFAULT_BOT_DIFFICULTY = "medium"
 BOT_DIFFICULTY_PRESETS = {
     "easy": {
-        "delay_range": (3.5, 7.0),
-        "smart_pick_chance": 0.65,
+        "delay_range": (5.5, 9.0),
+        "smart_pick_chance": 0.55,
         "wild_guess_chance": 0.2,
-        "late_focus_step": 0.12,
+        "late_focus_step": 0.10,
     },
     "medium": {
-        "delay_range": (3.5, 5.5),
-        "smart_pick_chance": 0.7,
-        "wild_guess_chance": 0.1,
-        "late_focus_step": 0.18,
+        "delay_range": (4.5, 7.5),
+        "smart_pick_chance": 0.63,
+        "wild_guess_chance": 0.14,
+        "late_focus_step": 0.15,
     },
     "hard": {
-        "delay_range": (3.0, 4.5),
-        "smart_pick_chance": 0.9,
-        "wild_guess_chance": 0.05,
-        "late_focus_step": 0.20,
+        "delay_range": (4.0, 6.5),
+        "smart_pick_chance": 0.88,
+        "wild_guess_chance": 0.07,
+        "late_focus_step": 0.19,
     },
 }
 BOT_NAME_POOL = [
