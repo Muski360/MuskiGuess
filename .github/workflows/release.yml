@@ -1,0 +1,21 @@
+name: 🚀 Auto Release on Tag
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'   # executa só quando você fizer push de tags tipo v1.0.0, v1.2.3 etc.
+
+jobs:
+  create_release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🧭 Checar código
+        uses: actions/checkout@v4
+
+      - name: 🏷️ Criar release automaticamente
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true  # gera changelog automático com base nos commits
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
