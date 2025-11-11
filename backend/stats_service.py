@@ -116,23 +116,16 @@ def record_multiplayer_match(
                 .with_for_update()
                 .first()
             )
-            total_stats = (
-                Stats.query.filter_by(user_id=user_id, mode=GameMode.TOTAL)
-                .with_for_update()
-                .first()
-            )
-            if not mp_stats or not total_stats:
+            if not mp_stats:
                 current_app.logger.warning(
                     "Multiplayer stats row missing for user_id=%s", user_id
                 )
                 continue
             mp_stats.num_games = (mp_stats.num_games or 0) + 1
             mp_stats.num_multiplayer_games = (mp_stats.num_multiplayer_games or 0) + 1
-            total_stats.num_games = (total_stats.num_games or 0) + 1
             if is_winner:
                 mp_stats.num_wins = (mp_stats.num_wins or 0) + 1
                 mp_stats.num_multiplayer_wins = (mp_stats.num_multiplayer_wins or 0) + 1
-                total_stats.num_wins = (total_stats.num_wins or 0) + 1
         db.session.commit()
     except Exception:  # noqa: BLE001 - log unexpected DB issues
         db.session.rollback()
