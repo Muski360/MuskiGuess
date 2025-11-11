@@ -60,7 +60,8 @@ words = [
     "latir", "lacos", "leigo", "lepra", "lesar", "licao", "medir", "meias", "melao", "micos",
     "obeso", "oncas", "oleos", "pacto", "padre", "papel", "pausa", "pelos", "peita", "pinga",
     "posar", "praca", "prima", "queda", "rasgo", "reter", "saldo", "senha", "surto", "tacar",
-    "piada", "audio", "primo", "hifen", "harpa", "hindu", "junho", "julho", "juiza", "lasca"
+    "piada", "audio", "primo", "hifen", "harpa", "hindu", "junho", "julho", "juiza", "lasca",
+    "aerar"
     ]
 # Lista EN fácil (5 letras, vocabulário simples)
 english_words_easy = [
