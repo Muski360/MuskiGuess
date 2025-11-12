@@ -725,12 +725,17 @@ body.leaderboard-open {
 }
 
 .leaderboard-list {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: clamp(260px, 55vh, 520px);
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   border-radius: 20px;
   border: 1px solid var(--border);
   background: rgba(6, 11, 24, 0.45);
   padding: 12px;
+  scrollbar-gutter: stable both-edges;
 }
 
 .leaderboard-empty {
@@ -1383,19 +1388,134 @@ h1 {
 .modal-actions { margin-top: 12px; }
 .modal-actions button { min-width: 160px; }
 
+#overlay .modal,
+#langOverlay .modal {
+  width: min(480px, 92vw);
+  padding: 32px 28px;
+  border-radius: 24px;
+  background: linear-gradient(165deg, rgba(15, 23, 42, 0.96), rgba(6, 11, 24, 0.94));
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  box-shadow: 0 28px 80px rgba(5, 8, 20, 0.65);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+#overlay .modal {
+  text-align: center;
+  gap: 12px;
+}
+
+#overlay .modal h2 {
+  margin: 0;
+  font-size: 1.7rem;
+  letter-spacing: 0.02em;
+}
+
+#overlay .modal p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+#overlay .modal .modal-actions {
+  width: 100%;
+  margin-top: 18px;
+}
+
+#overlay .modal .modal-actions button {
+  min-width: 0;
+}
+
+#correctWord {
+  color: var(--accent-color);
+  font-weight: 700;
+}
+
+#langOverlay .modal {
+  text-align: left;
+  gap: 20px;
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+#langOverlay .modal h2 {
+  margin: 0;
+  font-size: 1.45rem;
+  letter-spacing: 0.02em;
+}
+
 .lang-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
 }
+
 .lang-btn {
-  display: grid;
-  grid-template-columns: 28px 1fr;
+  display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: linear-gradient(140deg, rgba(59, 130, 246, 0.12), rgba(37, 99, 235, 0.08));
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 16px 32px rgba(5, 10, 25, 0.35);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.2s ease, background 0.2s ease;
 }
-.flag-img { width: 28px; height: 20px; border-radius: 3px; border: 1px solid #1f2937; object-fit: cover; }
+
+.lang-btn:hover,
+.lang-btn:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--accent-color);
+  box-shadow: 0 22px 44px rgba(59, 130, 246, 0.35);
+  background: linear-gradient(140deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.12));
+  color: #fff;
+}
+
+.lang-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.45), 0 22px 44px rgba(59, 130, 246, 0.35);
+}
+
+.flag-img {
+  width: 32px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  object-fit: cover;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
+#playAgainBtn {
+  width: 100%;
+  padding: 14px 24px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, var(--accent-color), rgba(59, 130, 246, 0.85));
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 18px 36px rgba(59, 130, 246, 0.35);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+#playAgainBtn:hover,
+#playAgainBtn:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35), 0 22px 44px rgba(59, 130, 246, 0.45);
+  filter: brightness(1.04);
+}
+
+#playAgainBtn:focus-visible {
+  outline: none;
+}
 /* Toast */
 .toast {
   position: fixed;
@@ -2028,6 +2148,12 @@ body.theme-locked .theme-container .theme-sidebar {
     max-height: calc(100vh - 40px);
     overflow-y: auto;
   }
+
+  #overlay .modal,
+  #langOverlay .modal {
+    width: calc(100vw - 40px);
+    padding: 26px 20px;
+  }
   
   .modal h2 {
     font-size: 20px;
@@ -2053,17 +2179,17 @@ body.theme-locked .theme-container .theme-sidebar {
   
   .lang-grid {
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: 14px;
   }
   
   .lang-btn {
-    padding: 16px;
-    font-size: 16px;
+    padding: 12px 16px;
+    font-size: 0.95rem;
   }
   
   .flag-img {
-    width: 24px;
-    height: 18px;
+    width: 30px;
+    height: 20px;
   }
   
   /* Botões de ação */
