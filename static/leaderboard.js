@@ -158,6 +158,11 @@
     refs.modal.classList.remove('hidden');
     refs.modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('leaderboard-open');
+  
+    // 🆕 Foca o scroll dentro da lista do ranking:
+    const list = refs.modal.querySelector('.leaderboard-list');
+    if (list) list.scrollTop = 0;
+  
     if (!state.loaded) {
       fetchLeaderboard();
     } else {

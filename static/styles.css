@@ -614,6 +614,7 @@ body.leaderboard-open {
   justify-content: center;
   padding: 20px;
   z-index: 3200;
+  overflow: hidden;
 }
 
 .leaderboard-modal.hidden {
@@ -736,6 +737,12 @@ body.leaderboard-open {
   background: rgba(6, 11, 24, 0.45);
   padding: 12px;
   scrollbar-gutter: stable both-edges;
+}
+.leaderboard-list {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  touch-action: pan-y;
 }
 
 .leaderboard-empty {
@@ -1399,6 +1406,7 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  color: #e6edff;
 }
 
 #overlay .modal {
@@ -1410,11 +1418,12 @@ h1 {
   margin: 0;
   font-size: 1.7rem;
   letter-spacing: 0.02em;
+  color: #f8fbff;
 }
 
 #overlay .modal p {
   margin: 0;
-  color: var(--muted);
+  color: rgba(226, 232, 240, 0.85);
   font-size: 1rem;
 }
 
@@ -1428,7 +1437,7 @@ h1 {
 }
 
 #correctWord {
-  color: var(--accent-color);
+  color: #69b4ff;
   font-weight: 700;
 }
 
@@ -1442,6 +1451,7 @@ h1 {
   margin: 0;
   font-size: 1.45rem;
   letter-spacing: 0.02em;
+  color: #f6f8ff;
 }
 
 .lang-grid {
@@ -1457,9 +1467,9 @@ h1 {
   gap: 12px;
   padding: 14px 18px;
   border-radius: 18px;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(148, 163, 184, 0.4);
   background: linear-gradient(140deg, rgba(59, 130, 246, 0.12), rgba(37, 99, 235, 0.08));
-  color: var(--text);
+  color: #f3f6ff;
   font-weight: 600;
   font-size: 0.95rem;
   letter-spacing: 0.01em;
@@ -1471,15 +1481,15 @@ h1 {
 .lang-btn:hover,
 .lang-btn:focus-visible {
   transform: translateY(-2px);
-  border-color: var(--accent-color);
-  box-shadow: 0 22px 44px rgba(59, 130, 246, 0.35);
-  background: linear-gradient(140deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.12));
+  border-color: rgba(95, 169, 255, 0.9);
+  box-shadow: 0 22px 44px rgba(95, 169, 255, 0.35);
+  background: linear-gradient(140deg, rgba(95, 169, 255, 0.24), rgba(37, 99, 235, 0.14));
   color: #fff;
 }
 
 .lang-btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.45), 0 22px 44px rgba(59, 130, 246, 0.35);
+  box-shadow: 0 0 0 2px rgba(95, 169, 255, 0.55), 0 22px 44px rgba(95, 169, 255, 0.35);
 }
 
 .flag-img {
@@ -1591,6 +1601,11 @@ h1 {
   transition: all 0.3s ease;
 }
 
+.theme-toggle:hover {
+  background: var(--panel);
+  transform: scale(1.05);
+  cursor: pointer;
+}
 /* Elementos que precisam de transições mais rápidas para animações */
 .cell, .key, .flip {
   transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease, transform 0.2s ease;
@@ -1785,6 +1800,11 @@ body.theme-locked .theme-container .theme-sidebar {
     align-items: center !important; 
     justify-content: center !important;
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+  }
+  .lang-world:hover {
+    background: var(--panel);
+    transform: scale(1.05);
+    cursor: pointer;
   }
   .world-icon { 
     width: 26px; 
