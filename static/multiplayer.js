@@ -38,6 +38,11 @@
     displayName: '',
     botDifficulty: 'medium',
   };
+  const BOT_DIFFICULTY_LABELS = {
+    easy: 'Facil',
+    medium: 'Medio',
+    hard: 'Dificil',
+  };
   let authState = {
     loggedIn: window.auth?.isLoggedIn?.() ?? false,
     user: window.auth?.getUser?.() ?? null,
@@ -78,6 +83,19 @@
   const languageSelect = document.getElementById('languageSelect');
   const botDifficultySelect = document.getElementById('botDifficultySelect');
   const startMatchBtn = document.getElementById('startMatchBtn');
+
+  function normalizeBotDifficulty(value) {
+    if (!value || typeof value !== 'string') return null;
+    const normalized = value.toLowerCase();
+    return BOT_DIFFICULTY_LABELS[normalized] ? normalized : null;
+  }
+
+  function resolveBotDifficulty(player) {
+    if (!player?.isBot) return null;
+    return normalizeBotDifficulty(player.botDifficulty)
+      || normalizeBotDifficulty(state.botDifficulty)
+      || 'medium';
+  }
   const playAgainBtn = document.getElementById('playAgainBtn');
   const addBotBtn = document.getElementById('addBotBtn');
 
@@ -727,11 +745,24 @@
     const tags = [];
     if (player.playerId === state.playerId) tags.push('Voce');
     if (player.isHost) tags.push('Host');
-    if (player.isBot) tags.push('BOT');
+    let botDifficulty = null;
+    if (player.isBot) {
+      tags.push('BOT');
+      botDifficulty = resolveBotDifficulty(player);
+      const diffLabel = botDifficulty ? BOT_DIFFICULTY_LABELS[botDifficulty] : '';
+      if (diffLabel) tags.push(diffLabel);
+    }
     board.nameEl.textContent = player.name;
     board.tagEl.textContent = tags.join(' | ');
     board.root.classList.toggle('you', player.playerId === state.playerId);
     board.root.classList.toggle('bot', Boolean(player.isBot));
+    if (player.isBot && botDifficulty) {
+      board.root.dataset.botDifficulty = botDifficulty;
+      board.tagEl.dataset.difficulty = botDifficulty;
+    } else {
+      delete board.root.dataset.botDifficulty;
+      delete board.tagEl.dataset.difficulty;
+    }
   }
 
   function removeMissingBoards(presentIds) {
@@ -759,14 +790,30 @@
         if (player.isHost) li.classList.add('host');
         if (player.isBot) li.classList.add('bot');
 
+        const difficulty = player.isBot ? resolveBotDifficulty(player) : null;
+        if (difficulty) {
+          li.dataset.botDifficulty = difficulty;
+        }
+
         const nameSpan = document.createElement('span');
         nameSpan.className = 'mp-score-name';
+        if (player.isBot && difficulty) {
+          const diffDot = document.createElement('span');
+          diffDot.className = 'mp-diff-dot';
+          diffDot.dataset.difficulty = difficulty;
+          diffDot.title = `Bot ${BOT_DIFFICULTY_LABELS[difficulty]}`;
+          nameSpan.appendChild(diffDot);
+        }
         const label = document.createElement('span');
         label.textContent = player.name;
         nameSpan.appendChild(label);
         if (player.isBot) {
           const botBadge = document.createElement('span');
           botBadge.className = 'mp-chip mp-chip--bot';
+          if (difficulty) {
+            botBadge.dataset.difficulty = difficulty;
+            botBadge.title = `Bot ${BOT_DIFFICULTY_LABELS[difficulty]}`;
+          }
           botBadge.textContent = 'BOT';
           nameSpan.appendChild(botBadge);
         }
@@ -775,7 +822,16 @@
         scoreSpan.className = 'mp-score-points';
         scoreSpan.textContent = String(player.score ?? 0);
 
-        li.append(nameSpan, scoreSpan);
+        const actions = document.createElement('div');
+        actions.className = 'mp-score-actions';
+        actions.appendChild(scoreSpan);
+
+        if (state.isHost && player.playerId !== state.playerId) {
+          const expelBtn = createExpelButton(player);
+          actions.appendChild(expelBtn);
+        }
+
+        li.append(nameSpan, actions);
         scoreboardList.appendChild(li);
       }
     });
@@ -788,6 +844,28 @@
         }
       });
     }
+  }
+
+  function createExpelButton(player) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'mp-expel-btn';
+    button.textContent = 'Expulsar';
+    button.title = `Expulsar ${player.name}`;
+    button.setAttribute('aria-label', `Expulsar ${player.name}`);
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      confirmExpelPlayer(player);
+    });
+    return button;
+  }
+
+  function confirmExpelPlayer(player) {
+    if (!player || !state.isHost || !state.roomCode) return;
+    const confirmed = window.confirm(`Tem certeza que deseja expulsar ${player.name}?`);
+    if (!confirmed) return;
+    socket.emit('expel_player', { code: state.roomCode, playerId: player.playerId });
   }
 
   function updateAttemptsInfo() {
@@ -1319,8 +1397,9 @@
     pendingJoinCode = null;
   }
 
-  function handleLeftRoom() {
-    showToast('Voce saiu da sala.');
+  function handleLeftRoom(payload = {}) {
+    const expelled = Boolean(payload?.expelled);
+    showToast(expelled ? 'Voce foi expulso da sala.' : 'Voce saiu da sala.');
     resetAfterLeave();
   }
 
@@ -1503,6 +1582,7 @@
     } else {
       showToast('Host atualizado.');
     }
+    renderScoreboard(state.players);
   });
 
   socket.on('player_joined', payload => {
@@ -1514,9 +1594,17 @@
   });
   socket.on('player_left', payload => {
     if (!payload?.name) return;
-    const message = payload.bot
-      ? `[BOT] ${payload.name} foi removido.`
-      : `${payload.name} saiu da sala.`;
+    const expelled = Boolean(payload.expelled);
+    let message;
+    if (payload.bot) {
+      message = expelled
+        ? `[BOT] ${payload.name} foi expulso.`
+        : `[BOT] ${payload.name} foi removido.`;
+    } else {
+      message = expelled
+        ? `${payload.name} foi expulso da sala.`
+        : `${payload.name} saiu da sala.`;
+    }
     showToast(message);
   });
 

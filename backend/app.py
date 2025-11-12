@@ -305,6 +305,7 @@ def _scoreboard_snapshot(room: dict) -> list:
             "score": player["score"],
             "isHost": sid == room.get("host_sid"),
             "isBot": bool(player.get("is_bot")),
+            "botDifficulty": player.get("bot_difficulty"),
         })
     players.sort(key=lambda item: (-item["score"], item["name"].lower()))
     return players
@@ -431,6 +432,7 @@ def _add_bot_player(room: dict) -> dict:
     bot_sid = f"{BOT_SID_PREFIX}{uuid4().hex}"
     player_id = uuid4().hex
     bot_name = _generate_bot_name(room)
+    bot_difficulty = _normalize_bot_difficulty(room.get("bot_difficulty"))
     player = {
         "id": player_id,
         "name": bot_name,
@@ -439,6 +441,7 @@ def _add_bot_player(room: dict) -> dict:
         "joined_at": time.time(),
         "user_id": None,
         "is_bot": True,
+        "bot_difficulty": bot_difficulty,
     }
     room["players"][bot_sid] = player
     room.setdefault("bots", {})[bot_sid] = {
@@ -448,7 +451,7 @@ def _add_bot_player(room: dict) -> dict:
         "candidates": [],
         "used": set(),
         "lang": room.get("lang", "pt"),
-        "difficulty": _normalize_bot_difficulty(room.get("bot_difficulty")),
+        "difficulty": bot_difficulty,
         "round_grace_until": None,
         "knowledge": {"banned": set(), "present": set()},
         "min_confident_attempts": 0,
@@ -494,6 +497,9 @@ def _launch_bots_for_round(room: dict):
         knowledge = _ensure_bot_knowledge(meta)
         knowledge["banned"].clear()
         knowledge["present"].clear()
+        player_entry = room["players"].get(bot_sid)
+        if player_entry:
+            player_entry["bot_difficulty"] = meta["difficulty"]
         _refresh_bot_persona(meta, room)
         _stop_bot_task(room, bot_sid)
         meta["task"] = socketio.start_background_task(_bot_worker, room["code"], bot_sid)
@@ -965,7 +971,13 @@ def _finalize_round(room: dict, *, winner_sid=None, was_draw: bool = False):
     _queue_round_transition(room["code"], action="standard")
 
 
-def _remove_player_from_room(code: str, sid: str, *, notify: bool = True):
+def _remove_player_from_room(
+    code: str,
+    sid: str,
+    *,
+    notify: bool = True,
+    expelled: bool = False,
+):
     room = multiplayer_rooms.get(code)
     player_room_index.pop(sid, None)
     if not room:
@@ -980,11 +992,14 @@ def _remove_player_from_room(code: str, sid: str, *, notify: bool = True):
     else:
         leave_room(code)
     if notify:
-        socketio.emit(
-            "player_left",
-            {"playerId": player["id"], "name": player["name"], "bot": was_bot},
-            to=code,
-        )
+        payload = {
+            "playerId": player["id"],
+            "name": player["name"],
+            "bot": was_bot,
+        }
+        if expelled:
+            payload["expelled"] = True
+        socketio.emit("player_left", payload, to=code)
     _touch_room(room)
     if not room["players"]:
         room["host_sid"] = None
@@ -1190,8 +1205,10 @@ def handle_update_settings(data):
         if normalized != room.get("bot_difficulty"):
             room["bot_difficulty"] = normalized
             bots = room.get("bots") or {}
-            for meta in bots.values():
+            for bot_sid, meta in bots.items():
                 meta["difficulty"] = normalized
+                if bot_sid in room["players"]:
+                    room["players"][bot_sid]["bot_difficulty"] = normalized
             updated = True
     if updated:
         _touch_room(room)
@@ -1331,6 +1348,40 @@ def handle_leave_room_event(data):
     if code:
         _remove_player_from_room(code, request.sid)
     emit("left_room", {"code": code}, to=request.sid)
+
+
+@socketio.on("expel_player")
+def handle_expel_player(data):
+    payload = data or {}
+    sid = request.sid
+    if not _require_multiplayer_login(sid):
+        return
+    code = (payload.get("code") or "").strip().upper()
+    target_player_id = (payload.get("playerId") or "").strip()
+    if not code or not target_player_id:
+        emit("room_error", {"error": "Jogador ou sala inválidos."}, to=sid)
+        return
+    room = multiplayer_rooms.get(code)
+    if not room:
+        emit("room_error", {"error": "Sala n\u00e3o encontrada."}, to=sid)
+        return
+    if sid != room.get("host_sid"):
+        emit("room_error", {"error": "Apenas o host pode expulsar jogadores."}, to=sid)
+        return
+    target_sid = None
+    for member_sid, player in room["players"].items():
+        if player["id"] == target_player_id:
+            target_sid = member_sid
+            break
+    if not target_sid:
+        emit("room_error", {"error": "Jogador n\u00e3o encontrado."}, to=sid)
+        return
+    if target_sid == sid:
+        emit("room_error", {"error": "Use o bot\u00e3o de sair para deixar a sala."}, to=sid)
+        return
+    _remove_player_from_room(code, target_sid, expelled=True)
+    if not _is_bot_sid(target_sid):
+        socketio.emit("left_room", {"code": code, "expelled": True}, to=target_sid)
 
 
 @socketio.on("play_again")
