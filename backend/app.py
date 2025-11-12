@@ -36,6 +36,10 @@ STATIC_DIR = ROOT_DIR / "static"
 
 # Caminho da pasta "data" (fica dentro de Backend)
 DATA_DIR = BASE_DIR / "data"
+PT_DICTIONARY_FILE = DATA_DIR / "palavras_5letras.txt"
+
+_PT_DICTIONARY_CACHE: list[str] | None = None
+
 
 
 # === ⚙️ Criação do app Flask ===
@@ -86,22 +90,40 @@ BOT_ROUND_START_GRACE_SECONDS = 3.2
 DEFAULT_BOT_DIFFICULTY = "medium"
 BOT_DIFFICULTY_PRESETS = {
     "easy": {
-        "delay_range": (3.5, 7.0),
-        "smart_pick_chance": 0.65,
-        "wild_guess_chance": 0.2,
+        "delay_range": (3.8, 7.2),
+        "smart_pick_chance": 0.55,
+        "wild_guess_chance": 0.22,
         "late_focus_step": 0.12,
+        "min_win_attempts_range": (4, 6),
+        "base_confidence": 0.35,
+        "confidence_growth": 0.12,
+        "confidence_jitter": 0.18,
+        "hesitation_bias": 0.7,
+        "mistake_chance": 0.28,
     },
     "medium": {
-        "delay_range": (3.5, 5.5),
+        "delay_range": (3.4, 5.4),
         "smart_pick_chance": 0.7,
-        "wild_guess_chance": 0.1,
+        "wild_guess_chance": 0.12,
         "late_focus_step": 0.18,
+        "min_win_attempts_range": (3, 5),
+        "base_confidence": 0.45,
+        "confidence_growth": 0.15,
+        "confidence_jitter": 0.12,
+        "hesitation_bias": 0.5,
+        "mistake_chance": 0.18,
     },
     "hard": {
-        "delay_range": (3.0, 4.5),
+        "delay_range": (3.0, 4.4),
         "smart_pick_chance": 0.9,
         "wild_guess_chance": 0.05,
         "late_focus_step": 0.20,
+        "min_win_attempts_range": (2, 4),
+        "base_confidence": 0.55,
+        "confidence_growth": 0.18,
+        "confidence_jitter": 0.08,
+        "hesitation_bias": 0.35,
+        "mistake_chance": 0.10,
     },
 }
 BOT_NAME_POOL = [
@@ -301,7 +323,29 @@ def _generate_bot_name(room: dict) -> str:
     return f"{base} #{counter}"
 
 
+def _load_pt_dictionary() -> list[str]:
+    """Load the shared Portuguese dictionary from disk, cached in memory."""
+    global _PT_DICTIONARY_CACHE
+    if _PT_DICTIONARY_CACHE:
+        return _PT_DICTIONARY_CACHE
+    words: list[str] = []
+    try:
+        with PT_DICTIONARY_FILE.open("r", encoding="utf-8") as handle:
+            for raw in handle:
+                word = raw.strip().lower()
+                if len(word) == 5 and word.isalpha():
+                    words.append(word)
+    except FileNotFoundError:
+        words = []
+    if not words:
+        words = list(get_word_list("pt"))
+    _PT_DICTIONARY_CACHE = words
+    return words
+
+
 def _bot_word_pool(lang: str) -> list:
+    if (lang or "").lower() == "pt":
+        return list(_load_pt_dictionary())
     return list(get_word_list(lang))
 
 
@@ -407,8 +451,31 @@ def _add_bot_player(room: dict) -> dict:
         "difficulty": _normalize_bot_difficulty(room.get("bot_difficulty")),
         "round_grace_until": None,
         "knowledge": {"banned": set(), "present": set()},
+        "min_confident_attempts": 0,
+        "confidence_bias": 0.0,
+        "mistake_chance": 0.0,
     }
     return bot_sid, player
+
+
+def _refresh_bot_persona(meta: dict, room: dict | None = None) -> None:
+    """Assign per-round constraints so bots feel less robotic."""
+    preset = _bot_preset_for(meta, room)
+    attempts_range = preset.get("min_win_attempts_range") or (3, 4)
+    if isinstance(attempts_range, (tuple, list)) and attempts_range:
+        low = int(attempts_range[0])
+        high = int(attempts_range[-1])
+    else:
+        low = high = 3
+    if high < low:
+        low, high = high, low
+    low = max(0, low)
+    high = max(low, high)
+    meta["min_confident_attempts"] = random.randint(low, high)
+    jitter = float(preset.get("confidence_jitter", 0.0) or 0.0)
+    meta["confidence_bias"] = random.uniform(-jitter, jitter) if jitter else 0.0
+    mistake_chance = float(preset.get("mistake_chance", 0.0) or 0.0)
+    meta["mistake_chance"] = max(0.0, min(1.0, mistake_chance))
 
 
 def _launch_bots_for_round(room: dict):
@@ -427,6 +494,7 @@ def _launch_bots_for_round(room: dict):
         knowledge = _ensure_bot_knowledge(meta)
         knowledge["banned"].clear()
         knowledge["present"].clear()
+        _refresh_bot_persona(meta, room)
         _stop_bot_task(room, bot_sid)
         meta["task"] = socketio.start_background_task(_bot_worker, room["code"], bot_sid)
 
@@ -502,14 +570,39 @@ def _select_bot_guess(room: dict, bot_sid: str) -> str | None:
     wild_guess_chance = max(0.0, preset.get("wild_guess_chance", 0.0))
     if attempts >= 4 and late_focus_step > 0:
         wild_guess_chance = max(0.0, wild_guess_chance - (attempts - 3) * late_focus_step * 0.5)
+    min_confident_attempts = max(0, int(meta.get("min_confident_attempts", 0) or 0))
+    early_phase = attempts < min_confident_attempts
+    base_confidence = float(preset.get("base_confidence", smart_pick_chance))
+    confidence_growth = float(preset.get("confidence_growth", 0.1))
+    confidence_bias = float(meta.get("confidence_bias", 0.0) or 0.0)
+    confidence = base_confidence + attempts * max(0.0, confidence_growth) + confidence_bias
+    confidence = max(0.05, min(0.98, confidence))
+    hesitation_bias = max(0.0, min(1.0, float(preset.get("hesitation_bias", 0.4) or 0.0)))
+    if early_phase:
+        smart_pick_chance *= (1.0 - 0.5 * hesitation_bias)
+        confidence *= 0.5
+        wild_guess_chance = min(0.85, wild_guess_chance + hesitation_bias * 0.35)
+    else:
+        smart_pick_chance = min(1.0, (smart_pick_chance + confidence) / 2)
+    smart_pick_chance = max(0.0, min(1.0, smart_pick_chance))
+    mistake_chance = float(meta.get("mistake_chance", preset.get("mistake_chance", 0.0) or 0.0))
+    if early_phase:
+        mistake_chance = min(1.0, mistake_chance + hesitation_bias * 0.4)
     strict_pool = [word for word in strict_candidates if word not in used]
     fallback_pool = _apply_knowledge_filter(_bot_word_pool(lang), knowledge)
     fallback_pool = [word for word in fallback_pool if word not in used]
+    should_force_fallback = bool(fallback_pool) and (
+        (early_phase and random.random() < hesitation_bias)
+        or (random.random() < mistake_chance)
+    )
     pool = strict_pool if strict_pool else fallback_pool
-    if fallback_pool and random.random() > smart_pick_chance:
+    if should_force_fallback:
+        pool = fallback_pool or strict_pool
+    elif fallback_pool and random.random() > smart_pick_chance:
         pool = fallback_pool
     if pool and random.random() < wild_guess_chance:
-        pool = fallback_pool or strict_pool
+        random_pool = [word for word in _bot_word_pool(lang) if word not in used]
+        pool = random_pool or pool
     if not pool:
         used.clear()
         strict_pool = [word for word in meta.get("candidates", []) if word not in used]
