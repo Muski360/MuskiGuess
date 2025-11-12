@@ -96,6 +96,11 @@
       || normalizeBotDifficulty(state.botDifficulty)
       || 'medium';
   }
+
+  function requestRoomSync(reason = '') {
+    if (!state.roomCode) return;
+    socket.emit('sync_room_state', { code: state.roomCode, reason });
+  }
   const playAgainBtn = document.getElementById('playAgainBtn');
   const addBotBtn = document.getElementById('addBotBtn');
 
@@ -963,7 +968,8 @@
     if (startMatchBtn) {
       const showStart = hostPanelVisible && state.roomStatus === 'lobby';
       startMatchBtn.classList.toggle('hidden', !showStart);
-      startMatchBtn.disabled = !showStart || !enoughPlayers;
+      const isPending = startMatchBtn.dataset.state === 'pending';
+      startMatchBtn.disabled = isPending || !showStart || !enoughPlayers;
     }
     if (playAgainBtn) {
       const showPlayAgain = hostPanelVisible && state.roomStatus === 'finished';
@@ -1165,6 +1171,9 @@
     }
     applyHostControls();
     updateLobbyStatus();
+    if (startMatchBtn && startMatchBtn.dataset.state === 'pending') {
+      delete startMatchBtn.dataset.state;
+    }
     if (state.roomStatus !== 'playing') {
       state.roundActive = false;
       guessForm?.classList.add('hidden');
@@ -1324,6 +1333,12 @@
     if (!state.isHost || !state.roomCode) return;
     const rounds = selectedRounds();
     const lang = languageSelect?.value || state.language;
+    if (startMatchBtn) {
+      startMatchBtn.dataset.state = 'pending';
+      startMatchBtn.disabled = true;
+    }
+    state.roomStatus = 'starting';
+    applyHostControls();
     socket.emit('start_game', { code: state.roomCode, rounds, lang });
   }
 
@@ -1591,6 +1606,7 @@
       ? `[BOT] ${payload.name} foi adicionado.`
       : `${payload.name} entrou na sala.`;
     showToast(message);
+    requestRoomSync('player_joined');
   });
   socket.on('player_left', payload => {
     if (!payload?.name) return;
@@ -1605,6 +1621,12 @@
         ? `${payload.name} foi expulso da sala.`
         : `${payload.name} saiu da sala.`;
     }
+    if (payload.playerId) {
+      state.players = state.players.filter(p => p.playerId !== payload.playerId);
+      renderScoreboard(state.players);
+      applyHostControls();
+    }
+    requestRoomSync('player_left');
     showToast(message);
   });
 
@@ -1612,6 +1634,13 @@
     if (statusMessageEl) statusMessageEl.textContent = 'Partida iniciada!';
     showToast('Partida iniciada!');
     statsSyncedForMatch = false;
+    state.roomStatus = 'playing';
+    if (startMatchBtn && startMatchBtn.dataset.state === 'pending') {
+      delete startMatchBtn.dataset.state;
+    }
+    applyHostControls();
+    updateLobbyStatus();
+    requestRoomSync('match_started');
   });
   socket.on('round_started', handleRoundStarted);
   socket.on('guess_result', handleGuessResult);
@@ -1625,6 +1654,10 @@
   socket.on('room_error', payload => {
     const message = payload?.error || 'Ocorreu um erro na sala.';
     showToast(message);
+    if (startMatchBtn && startMatchBtn.dataset.state === 'pending') {
+      delete startMatchBtn.dataset.state;
+      applyHostControls();
+    }
     if (autoJoinRequested) {
       autoJoinRequested = false;
       const code = pendingJoinCode;

@@ -1020,28 +1020,15 @@ def _remove_player_from_room(
         room["host_sid"] = None
         room["host_player_id"] = None
         room["empty_since"] = time.time()
-        room["status"] = "lobby"
-        room["current_word"] = None
-        room["round_complete"] = True
-        room["round_draw"] = False
-        room["round_started_at"] = None
-        room["tiebreaker_active"] = False
-        room["current_round_tiebreaker"] = False
-        room["stats_recorded"] = False
+        _reset_room_to_lobby(room)
+        _broadcast_room_state(room)
         return
     if not any(not pl.get("is_bot") for pl in room["players"].values()):
         _clear_all_bots(room)
         room["host_sid"] = None
         room["host_player_id"] = None
         room["empty_since"] = time.time()
-        room["status"] = "lobby"
-        room["current_word"] = None
-        room["round_complete"] = True
-        room["round_draw"] = False
-        room["round_started_at"] = None
-        room["tiebreaker_active"] = False
-        room["current_round_tiebreaker"] = False
-        room["stats_recorded"] = False
+        _reset_room_to_lobby(room)
         _broadcast_room_state(room)
         return
     _ensure_host(room)
@@ -1397,6 +1384,17 @@ def handle_expel_player(data):
     _remove_player_from_room(code, target_sid, expelled=True)
     if not _is_bot_sid(target_sid):
         socketio.emit("left_room", {"code": code, "expelled": True}, to=target_sid)
+
+
+@socketio.on("sync_room_state")
+def handle_sync_room_state(data):
+    payload = data or {}
+    code = (payload.get("code") or "").strip().upper()
+    room = multiplayer_rooms.get(code)
+    if not room:
+        emit("room_error", {"error": "Sala n\u00e3o encontrada."}, to=request.sid)
+        return
+    emit("room_update", _room_payload(room), to=request.sid)
 
 
 @socketio.on("play_again")
