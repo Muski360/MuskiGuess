@@ -679,6 +679,19 @@ def _broadcast_room_state(room: dict):
     socketio.emit("room_update", _room_payload(room), to=room["code"])
 
 
+def _reset_room_to_lobby(room: dict):
+    room["status"] = "lobby"
+    room["round_complete"] = True
+    room["round_draw"] = False
+    room["round_started_at"] = None
+    room["round_index"] = room.get("round_index", 0)
+    room["round_winner_sid"] = None
+    room["current_word"] = None
+    room["tiebreaker_active"] = False
+    room["current_round_tiebreaker"] = False
+    room["bot_round_grace_until"] = None
+
+
 def _touch_room(room: dict):
     if not room:
         return
@@ -991,6 +1004,8 @@ def _remove_player_from_room(
         room.get("bots", {}).pop(sid, None)
     else:
         leave_room(code)
+    if expelled and room.get("status") == "playing":
+        _reset_room_to_lobby(room)
     if notify:
         payload = {
             "playerId": player["id"],
