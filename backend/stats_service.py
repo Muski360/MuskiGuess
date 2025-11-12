@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from flask import current_app
+from sqlalchemy import func
+
 from database import db
 from models import DEFAULT_GAME_MODES, GameMode, Stats, User
 
@@ -153,8 +155,7 @@ def fetch_user_stats(user_id: int) -> List[Dict[str, int]]:
     return [item.to_dict() for item in stats]
 
 
-LEADERBOARD_MODES: Tuple[GameMode, ...] = (
-    GameMode.TOTAL,
+LEADERBOARD_SINGLEPLAYER_MODES: Tuple[GameMode, ...] = (
     GameMode.CLASSIC,
     GameMode.DUPLETO,
     GameMode.QUAPLETO,
@@ -168,7 +169,12 @@ def fetch_leaderboard(limit: Optional[int] = None) -> Dict[str, object]:
         sanitized_limit = max(1, min(limit, 200))
 
     leaderboard: Dict[str, object] = {}
-    for mode in LEADERBOARD_MODES:
+
+    leaderboard[GameMode.TOTAL.value] = _fetch_total_singleplayer_leaderboard(
+        limit=sanitized_limit
+    )
+
+    for mode in LEADERBOARD_SINGLEPLAYER_MODES:
         query = (
             db.session.query(Stats, User.username)
             .join(User, Stats.user_id == User.id)
@@ -192,4 +198,54 @@ def fetch_leaderboard(limit: Optional[int] = None) -> Dict[str, object]:
                 }
             )
         leaderboard[mode.value] = serialized
+    return leaderboard
+
+
+def _fetch_total_singleplayer_leaderboard(limit: int) -> List[Dict[str, object]]:
+    """Return leaderboard rows using only singleplayer modes aggregated per user."""
+    if not LEADERBOARD_SINGLEPLAYER_MODES:
+        return []
+
+    aggregated = (
+        db.session.query(
+            Stats.user_id.label("user_id"),
+            func.coalesce(func.sum(Stats.num_games), 0).label("num_games"),
+            func.coalesce(func.sum(Stats.num_wins), 0).label("num_wins"),
+        )
+        .filter(Stats.mode.in_(LEADERBOARD_SINGLEPLAYER_MODES))
+        .group_by(Stats.user_id)
+        .subquery()
+    )
+
+    query = (
+        db.session.query(
+            User.username.label("username"),
+            aggregated.c.num_games,
+            aggregated.c.num_wins,
+        )
+        .join(aggregated, aggregated.c.user_id == User.id)
+        .filter(aggregated.c.num_wins > 0)
+        .order_by(
+            aggregated.c.num_wins.desc(),
+            aggregated.c.num_games.asc(),
+            User.username.asc(),
+        )
+        .limit(limit)
+    )
+
+    rows = query.all()
+    leaderboard: List[Dict[str, object]] = []
+    for rank, row in enumerate(rows, start=1):
+        num_games = row.num_games or 0
+        num_wins = row.num_wins or 0
+        win_rate = (num_wins / num_games * 100) if num_games else 0.0
+        leaderboard.append(
+            {
+                "rank": rank,
+                "username": row.username,
+                "wins": num_wins,
+                "games": num_games,
+                "winRate": round(win_rate, 1) if num_games else 0.0,
+            }
+        )
     return leaderboard
