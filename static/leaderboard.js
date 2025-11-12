@@ -14,6 +14,8 @@
     loaded: false,
     updatedAt: null,
     error: null,
+    scrollLocked: false,
+    lenisPaused: false,
   };
 
   const refs = {
@@ -25,6 +27,71 @@
     tabs: [],
     updated: null,
   };
+
+  function getLenisInstance() {
+    if (typeof window === 'undefined') return null;
+    return window.__lenisInstance || null;
+  }
+
+  function pauseLenis() {
+    if (state.lenisPaused) return;
+    const lenis = getLenisInstance();
+    if (lenis && typeof lenis.stop === 'function') {
+      try {
+        lenis.stop();
+        state.lenisPaused = true;
+      } catch (err) {
+        console.warn('[leaderboard] Failed to pause smooth scroll:', err);
+      }
+    }
+  }
+
+  function resumeLenis() {
+    if (!state.lenisPaused) return;
+    const lenis = getLenisInstance();
+    if (lenis && typeof lenis.start === 'function') {
+      try {
+        lenis.start();
+      } catch (err) {
+        console.warn('[leaderboard] Failed to resume smooth scroll:', err);
+      }
+    }
+    state.lenisPaused = false;
+  }
+
+  function lockBackgroundScroll() {
+    if (state.scrollLocked) return;
+    state.scrollLocked = true;
+    document.body.classList.add('leaderboard-open');
+    pauseLenis();
+  }
+
+  function unlockBackgroundScroll() {
+    if (!state.scrollLocked) return;
+    state.scrollLocked = false;
+    document.body.classList.remove('leaderboard-open');
+    resumeLenis();
+  }
+
+  function isScrollingInsideList(target) {
+    if (!refs.list) return false;
+    return target === refs.list || refs.list.contains(target);
+  }
+
+  function preventBackgroundScroll(event) {
+    if (!state.scrollLocked) return;
+    if (isScrollingInsideList(event.target)) {
+      return;
+    }
+    event.preventDefault();
+  }
+
+  function setupListIsolation() {
+    if (!refs.list) return;
+    refs.list.setAttribute('data-lenis-prevent', 'true');
+    refs.list.setAttribute('data-lenis-prevent-wheel', 'true');
+    refs.list.setAttribute('data-lenis-prevent-touch', 'true');
+  }
 
   function setStatus(message, isError = false) {
     if (!refs.status) return;
@@ -157,8 +224,8 @@
     if (!refs.modal) return;
     refs.modal.classList.remove('hidden');
     refs.modal.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('leaderboard-open');
-  
+    lockBackgroundScroll();
+
     // 🆕 Foca o scroll dentro da lista do ranking:
     const list = refs.modal.querySelector('.leaderboard-list');
     if (list) list.scrollTop = 0;
@@ -175,7 +242,7 @@
     if (!refs.modal) return;
     refs.modal.classList.add('hidden');
     refs.modal.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('leaderboard-open');
+    unlockBackgroundScroll();
   }
 
   function handleBackdropClick(event) {
@@ -211,8 +278,11 @@
     refs.trigger.addEventListener('click', openModal);
     refs.closeBtn?.addEventListener('click', closeModal);
     refs.modal.addEventListener('click', handleBackdropClick);
+    refs.modal.addEventListener('wheel', preventBackgroundScroll, { passive: false });
+    refs.modal.addEventListener('touchmove', preventBackgroundScroll, { passive: false });
     document.addEventListener('keydown', handleEscape);
     refs.tabs.forEach((tab) => tab.addEventListener('click', handleTabClick));
+    setupListIsolation();
     setSelectedMode(state.selected);
   }
 
