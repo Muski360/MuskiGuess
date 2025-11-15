@@ -31,6 +31,10 @@ class User(db.Model):
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     reset_token: Mapped[Optional[str]] = mapped_column(String(6), nullable=True)
+    # Progression fields
+    level: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
+    experience: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    tag: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -47,6 +51,8 @@ class User(db.Model):
             "(reset_token IS NULL) OR (reset_token ~ '^[A-Za-z0-9]{6}$')",
             name="chk_reset_token_length",
         ),
+        CheckConstraint("level >= 1", name="chk_user_level_min"),
+        CheckConstraint("experience >= 0", name="chk_user_experience_nonneg"),
     )
 
     def to_public_dict(self) -> Dict[str, str]:
@@ -55,6 +61,9 @@ class User(db.Model):
             "id": self.id,
             "username": self.username,
             "email": self.email,
+            "level": self.level,
+            "experience": self.experience,
+            "tag": self.tag,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 

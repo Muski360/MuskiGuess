@@ -11,10 +11,15 @@ CREATE TABLE users (
     password_hash TEXT NOT NULL,               -- Hashed password for authentication
     reset_token VARCHAR(6),                    -- Optional 6-character token for password reset
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,  -- Account creation timestamp (defaults to now)
+    level INTEGER NOT NULL DEFAULT 1,          -- Progression level (min 1)
+    experience INTEGER NOT NULL DEFAULT 0,     -- Experience points (non-negative)
+    tag VARCHAR(32),                           -- Optional rank/tag label shown on leaderboards
     CONSTRAINT chk_username_valid CHECK (username ~ '^[A-Za-z0-9]+$'),  -- Username must be only letters and numbers (no special characters or spaces)
     CONSTRAINT chk_reset_token_length CHECK (
         reset_token IS NULL OR reset_token ~ '^[A-Za-z0-9]{6}$'
-    )  -- If reset_token is provided, it must be exactly 6 alphanumeric characters
+    ),  -- If reset_token is provided, it must be exactly 6 alphanumeric characters
+    CONSTRAINT chk_user_level_min CHECK (level >= 1),
+    CONSTRAINT chk_user_experience_nonneg CHECK (experience >= 0)
 );
 
 -- Add descriptive comments to the users table and its columns for documentation
@@ -25,6 +30,18 @@ COMMENT ON COLUMN users.email IS 'User email address, used for login and communi
 COMMENT ON COLUMN users.password_hash IS 'Password hash for user authentication (e.g., bcrypt).';
 COMMENT ON COLUMN users.reset_token IS 'Optional 6-character reset code for password recovery (null if not in use).';
 COMMENT ON COLUMN users.created_at IS 'Timestamp when the account was created (automatically set to current time).';
+COMMENT ON COLUMN users.level IS 'User progression level (starts at 1).';
+COMMENT ON COLUMN users.experience IS 'Experience points accumulated by the user (non-negative).';
+COMMENT ON COLUMN users.tag IS 'Optional rank/tag shown on leaderboards next to the username.';
+
+-- ==================================================
+-- Migration helper (run once on existing DB)
+-- ==================================================
+-- ALTER TABLE users ADD COLUMN level INTEGER NOT NULL DEFAULT 1;
+-- ALTER TABLE users ADD COLUMN experience INTEGER NOT NULL DEFAULT 0;
+-- ALTER TABLE users ADD COLUMN tag VARCHAR(32);
+-- ALTER TABLE users ADD CONSTRAINT chk_user_level_min CHECK (level >= 1);
+-- ALTER TABLE users ADD CONSTRAINT chk_user_experience_nonneg CHECK (experience >= 0);
 
 -- ==================================================
 -- Table: stats - tracks gameplay statistics per user per mode

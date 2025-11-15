@@ -176,7 +176,7 @@ def fetch_leaderboard(limit: Optional[int] = None) -> Dict[str, object]:
 
     for mode in LEADERBOARD_SINGLEPLAYER_MODES:
         query = (
-            db.session.query(Stats, User.username)
+            db.session.query(Stats, User.username, User.tag)
             .join(User, Stats.user_id == User.id)
             .filter(Stats.mode == mode, Stats.num_wins > 0)
             .order_by(Stats.num_wins.desc(), Stats.num_games.asc(), User.username.asc())
@@ -184,7 +184,7 @@ def fetch_leaderboard(limit: Optional[int] = None) -> Dict[str, object]:
         )
         rows = query.all()
         serialized: List[Dict[str, object]] = []
-        for rank, (stats, username) in enumerate(rows, start=1):
+        for rank, (stats, username, tag) in enumerate(rows, start=1):
             num_games = stats.num_games or 0
             num_wins = stats.num_wins or 0
             win_rate = (num_wins / num_games * 100) if num_games else 0.0
@@ -192,6 +192,7 @@ def fetch_leaderboard(limit: Optional[int] = None) -> Dict[str, object]:
                 {
                     "rank": rank,
                     "username": username,
+                    "tag": tag,
                     "wins": num_wins,
                     "games": num_games,
                     "winRate": round(win_rate, 1) if num_games else 0.0,
@@ -220,6 +221,7 @@ def _fetch_total_singleplayer_leaderboard(limit: int) -> List[Dict[str, object]]
     query = (
         db.session.query(
             User.username.label("username"),
+            User.tag.label("tag"),
             aggregated.c.num_games,
             aggregated.c.num_wins,
         )
@@ -243,6 +245,7 @@ def _fetch_total_singleplayer_leaderboard(limit: int) -> List[Dict[str, object]]
             {
                 "rank": rank,
                 "username": row.username,
+                "tag": row.tag,
                 "wins": num_wins,
                 "games": num_games,
                 "winRate": round(win_rate, 1) if num_games else 0.0,

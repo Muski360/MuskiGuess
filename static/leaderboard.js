@@ -153,6 +153,16 @@
       const name = document.createElement('span');
       name.className = 'leaderboard-name';
       name.textContent = entry.username || 'Anônimo';
+      if (entry.tag) {
+        const badge = document.createElement('span');
+        badge.className = 'leaderboard-tag';
+        const value = String(entry.tag).trim();
+        badge.textContent = value.toUpperCase();
+        if (value.toUpperCase() === 'ADMIN') {
+          badge.classList.add('is-admin');
+        }
+        name.appendChild(badge);
+      }
 
       const meta = document.createElement('span');
       meta.className = 'leaderboard-meta';
