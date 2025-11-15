@@ -61,7 +61,16 @@ words = [
     "obeso", "oncas", "oleos", "pacto", "padre", "papel", "pausa", "pelos", "peita", "pinga",
     "posar", "praca", "prima", "queda", "rasgo", "reter", "saldo", "senha", "surto", "tacar",
     "piada", "audio", "primo", "hifen", "harpa", "hindu", "junho", "julho", "juiza", "lasca",
-    "aerar"
+    "aerar", "milho", "cacto", "lapis", "limao", "tripa", "mosca", "manta", "marco", "pavao",
+    "panda", "cupim", "bagre", "quati", "morsa", "toras", "pouco", "poeta", "sesta", "bicas",
+    "fundo", "gaita", "tinto", "limas", "gelos", "baita", "torre", "tosse", "zonzo", "fases",
+    "mumia", "utero", "fluor", "reuso", "toldo", "troca", "taxis", "geada", "fraca", "fraco",
+    "facas", "domar", "crise", "dique", "duque", "musas", "oxala", "garca", "avaro", "tesao",
+    "daqui", "nudez", "baixa", "persa", "pingo", "cueca", "volei", "tanto", "lilas", "verba",
+    "tripe", "oxido", "turco", "album", "saque", "trote", "pedal", "enfim", "meros", "menos",
+    "reler", "dicas", "fogos", "regua", "surda", "surdo", "tango", "topar", "lider", "trupe",
+    "clero", "lirio", "palha", "adega", "tumba", "ninfa", "bamba", "globo", "vapor", "bonus",
+    "brega", "vivos", "fosco", "sarna", "sarda", "cheia", "cheio", "grego", "chata", "mansa"
     ]
 # Lista EN fácil (5 letras, vocabulário simples)
 english_words_easy = [

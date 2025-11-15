@@ -6280,6 +6280,7 @@ passo
 paste
 pasty
 pasul
+pavao
 patao
 patas
 patch
