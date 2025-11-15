@@ -14,6 +14,7 @@ let muskiActivated = false;
 let hackrActivated = false; // matrix rain background toggle
 let isSubmitting = false; // evita duplo envio
 let suppressAutoAdvance = false; // evita avanço duplo entre keydown e input
+let activeGuessAbortController = null;
 
 // Declarar variáveis do teclado ANTES das funções que as usam
 const BACKSPACE_KEY = '\u232b';
@@ -731,6 +732,7 @@ function getStatusColor(status) {
 async function newGame(options = {}) {
   const { resetStorage = false } = options || {};
   awaitingNewGame = true;
+  cancelPendingGuessRequest();
   syncControlsState();
   setStatus('Preparando novo desafio...');
   if (resetStorage) {
@@ -1402,11 +1404,43 @@ async function submitCurrentRow() {
 async function sendGuess(guess) {
   const attemptIndex = attempts;
   const upperGuess = (guess || '').toUpperCase();
-  const res = await fetch('/api/guess', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ gameId, guess })
-  });
-  const data = await res.json();
+  const requestGameId = gameId;
+  cancelPendingGuessRequest();
+  const controller = new AbortController();
+  activeGuessAbortController = controller;
+  let res;
+  let data;
+  try {
+    res = await fetch('/api/guess', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gameId: requestGameId, guess }),
+      signal: controller.signal,
+    });
+    data = await res.json();
+  } catch (error) {
+    if (controller.signal.aborted) {
+      return;
+    }
+    console.error('Erro ao enviar palpite:', error);
+    setStatus('Erro de rede ao enviar palpite');
+    shakeScreen();
+    return;
+  } finally {
+    if (activeGuessAbortController === controller) {
+      activeGuessAbortController = null;
+    }
+  }
+
+  if (requestGameId !== gameId) {
+    console.warn('Resposta ignorada: jogo atual mudou.', { requestGameId, currentGameId: gameId });
+    return;
+  }
+  if (data?.gameId && data.gameId !== requestGameId) {
+    console.warn('Resposta ignorada: gameId divergente.', { responseGameId: data.gameId, expected: requestGameId });
+    return;
+  }
+
   if (!res.ok) { 
     if (res.status === 404 && (data?.error || '').toLowerCase().includes('jogo')) {
       await handleMissingGameSession('Sessão não encontrada. Criando um novo jogo...');
@@ -1614,6 +1648,20 @@ function showToast(message) {
     }
     toast.classList.remove('hidden');
     setTimeout(() => { if (toast) toast.classList.add('hidden'); }, 2200);
+  }
+}
+
+function cancelPendingGuessRequest(reason = '') {
+  if (!activeGuessAbortController) return;
+  try {
+    activeGuessAbortController.abort();
+    if (reason) {
+      console.warn('Palpite pendente cancelado:', reason);
+    }
+  } catch (err) {
+    console.warn('Falha ao cancelar palpite pendente:', err);
+  } finally {
+    activeGuessAbortController = null;
   }
 }
 

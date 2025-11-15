@@ -70,7 +70,8 @@ words = [
     "tripe", "oxido", "turco", "album", "saque", "trote", "pedal", "enfim", "meros", "menos",
     "reler", "dicas", "fogos", "regua", "surda", "surdo", "tango", "topar", "lider", "trupe",
     "clero", "lirio", "palha", "adega", "tumba", "ninfa", "bamba", "globo", "vapor", "bonus",
-    "brega", "vivos", "fosco", "sarna", "sarda", "cheia", "cheio", "grego", "chata", "mansa"
+    "brega", "vivos", "fosco", "sarna", "sarda", "cheia", "cheio", "grego", "chata", "mansa",
+    "bobos", "vovos"
     ]
 # Lista EN fácil (5 letras, vocabulário simples)
 english_words_easy = [

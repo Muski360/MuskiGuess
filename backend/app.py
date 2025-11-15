@@ -1493,6 +1493,7 @@ def make_guess():
             "won": won_all,
             "gameOver": game_over,
         }
+        response["gameId"] = game_id
         if game_over:
             response["correctWords"] = correct_words_upper
             _record_singleplayer_stats_if_needed(game, won_all)
@@ -1511,6 +1512,7 @@ def make_guess():
         "won": won,
         "gameOver": game_over,
     }
+    response["gameId"] = game_id
     if won or game_over:
         response["correctWord"] = game.word.upper()
     if game_over:
