@@ -5466,55 +5466,55 @@ const themes = {
     dark: {
 
 
-      bg: '#1b1402',
+      bg: '#120d06',
 
 
-      panel: '#2a2108',
+      panel: '#1d150b',
 
 
-      text: '#fef3c7',
+      text: '#f2e8cd',
 
 
-      muted: '#fcd34d',
+      muted: '#d4b56b',
 
 
-      green: '#facc15',
+      green: '#d4b56b',
 
 
-      yellow: '#fcd34d',
+      yellow: '#cda860',
 
 
       gray: '#4b5563',
 
 
-      surface: '#33260a',
+      surface: '#1a130b',
 
 
-      border: '#6b4f0b',
+      border: '#4d3820',
 
 
-      buttonBg: 'linear-gradient(180deg, #6b4f0b 0%, #1b1402 100%)',
+      buttonBg: 'linear-gradient(180deg, #3d2b18 0%, #1a130b 100%)',
 
 
-      buttonBorder: '#6b4f0b',
+      buttonBorder: '#4d3820',
 
 
-      toastBg: '#facc15',
+      toastBg: '#d4b56b',
 
 
-      toastText: '#422006',
+      toastText: '#26170a',
 
 
       worldIcon: 'static/images/worldicon2.svg',
 
 
-      background: 'radial-gradient(1200px 600px at 10% 10%, #3b2a08 0%, var(--bg) 60%)',
+      background: 'radial-gradient(900px 520px at 12% 12%, #2b1d10 0%, #120d06 55%)',
 
 
-      accentColor: '#facc15',
+      accentColor: '#d4b56b',
 
 
-      accentBg: 'rgba(250, 204, 21, 0.12)'
+      accentBg: 'rgba(212, 181, 107, 0.14)'
 
 
     },
