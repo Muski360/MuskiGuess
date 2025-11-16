@@ -1,6 +1,6 @@
 (function () {
   const socketLibraryLoaded = typeof window !== 'undefined' && typeof window.io === 'function';
-  const socket = socketLibraryLoaded ? window.io() : {
+  const socket = socketLibraryLoaded ?window.io() : {
     connected: false,
     emit: (...args) => console.warn('Socket.IO client not available. Event skipped.', args),
     on: () => {},
@@ -41,6 +41,12 @@
   let authState = {
     loggedIn: window.auth?.isLoggedIn?.() ?? false,
     user: window.auth?.getUser?.() ?? null,
+  };
+
+  const htmlDecoder = document.createElement('textarea');
+  const fromEntities = (str = '') => {
+    htmlDecoder.innerHTML = str;
+    return htmlDecoder.value;
   };
 
   const boards = new Map();
@@ -163,7 +169,7 @@
       handleAuthSnapshot({ user: null });
       return;
     }
-    const initialUser = typeof window.auth.getUser === 'function' ? window.auth.getUser() : null;
+    const initialUser = typeof window.auth.getUser === 'function' ?window.auth.getUser() : null;
     handleAuthSnapshot({ user: initialUser });
     if (typeof window.auth.onAuthChange === 'function') {
       window.auth.onAuthChange(handleAuthSnapshot);
@@ -171,7 +177,7 @@
   }
 
   function requireLoginForMultiplayerFeature() {
-    showToast('Faça login para acessar o multiplayer.');
+    showToast(fromEntities('Fa&ccedil;a login para acessar o multiplayer.'));
     if (window.auth?.openLogin) {
       window.auth.openLogin();
     }
@@ -193,13 +199,13 @@
   const MOON_ICON = '\u{1F319}';
 
   function applyTheme(theme) {
-    currentTheme = theme === 'light' ? 'light' : 'dark';
+    currentTheme = theme === 'light' ?'light' : 'dark';
     document.body.classList.toggle('mp-theme-light', currentTheme === 'light');
     if (themeToggleBtn) {
-      themeToggleBtn.textContent = currentTheme === 'light' ? MOON_ICON : SUN_ICON;
+      themeToggleBtn.textContent = currentTheme === 'light' ?MOON_ICON : SUN_ICON;
       themeToggleBtn.setAttribute(
         'aria-label',
-        currentTheme === 'light' ? 'Alternar para tema escuro' : 'Alternar para tema claro'
+        currentTheme === 'light' ?'Alternar para tema escuro' : 'Alternar para tema claro'
       );
     }
     try {
@@ -541,7 +547,7 @@
   function handleLetterPaste(event, index) {
     event.preventDefault();
     const clipboard = event.clipboardData || window.clipboardData;
-    const text = clipboard ? clipboard.getData('text') : '';
+    const text = clipboard ?clipboard.getData('text') : '';
     if (!text) return;
     const sanitized = text.toUpperCase().replace(/[^A-Z]/g, '');
     if (!sanitized) return;
@@ -575,14 +581,13 @@
 
   function showRoundResultOverlay(options = {}) {
     if (!roundResultOverlay) return;
-    const { winnerName, correctWord, isDraw } = options;
-    const message = isDraw ? 'Rodada empatada!' : (winnerName ? `Ponto para ${winnerName}!` : 'Rodada encerrada!');
-    const normalizedWord = correctWord && correctWord.trim().length ? correctWord : '-----';
+    const { winnerName, isDraw } = options;
+    const message = isDraw ?'Rodada empatada!' : (winnerName ?`Ponto para ${winnerName}!` : 'Rodada encerrada!');
     if (roundResultMessageEl) {
       roundResultMessageEl.textContent = message;
     }
     if (roundResultWordEl) {
-      roundResultWordEl.textContent = `Palavra: ${normalizedWord}`;
+      roundResultWordEl.textContent = 'Palavra: ??';
     }
     roundResultOverlay.classList.remove('hidden');
     if (roundResultTimeoutId) {
@@ -773,7 +778,7 @@
 
         const scoreSpan = document.createElement('span');
         scoreSpan.className = 'mp-score-points';
-        scoreSpan.textContent = String(player.score ?? 0);
+        scoreSpan.textContent = String(player.score ?0);
 
         li.append(nameSpan, scoreSpan);
         scoreboardList.appendChild(li);
@@ -792,7 +797,7 @@
 
   function updateAttemptsInfo() {
     if (!attemptsInfoEl) return;
-    const used = state.roundActive ? Math.min(state.localAttempts, state.attemptLimit) : 0;
+    const used = state.roundActive ?Math.min(state.localAttempts, state.attemptLimit) : 0;
     attemptsInfoEl.textContent = `${used}/${state.attemptLimit} tentativas`;
   }
 
@@ -905,7 +910,7 @@
       return;
     }
     if (state.players.length >= 6) {
-      showToast('Sala cheia. Não é possível adicionar mais bots.');
+      showToast(fromEntities('Sala cheia. N&atilde;o &eacute; poss&iacute;vel adicionar mais bots.'));
       return;
     }
     socket.emit('add_bot', { code: state.roomCode });
@@ -929,12 +934,12 @@
     const target = payload?.roundsTarget || state.roundsTarget || 3;
     if (roundInfoEl) {
       roundInfoEl.textContent = state.tiebreakerActive
-        ? `Desempate - rodada ${state.roundNumber}`
+        ?`Desempate - rodada ${state.roundNumber}`
         : `Rodada ${state.roundNumber} de ${target}`;
     }
     if (statusMessageEl) {
       statusMessageEl.textContent = state.tiebreakerActive
-        ? 'Desempate em andamento. Quem acertar primeiro vence.'
+        ?'Desempate em andamento. Quem acertar primeiro vence.'
         : 'Rodada iniciada. Seja rapido!';
     }
     updateAttemptsInfo();
@@ -954,11 +959,9 @@
   function handleRoundResult(payload) {
     state.roundActive = false;
     setGuessInputsEnabled(false, { focus: false });
-    const correctWord = (payload?.correctWord || '').toUpperCase();
     const winnerName = payload?.winner?.name || null;
     showRoundResultOverlay({
       winnerName,
-      correctWord,
       isDraw: Boolean(payload?.draw),
     });
     updateStatusAfterRound(payload);
@@ -978,7 +981,7 @@
     } else if (payload?.winners && payload.winners.length === 1) {
       const winner = payload.winners[0];
       title = `Vitoria de ${winner.name}!`;
-      message = `${winner.name} venceu com ${winner.score} ponto${winner.score === 1 ? '' : 's'}.`;
+      message = `${winner.name} venceu com ${winner.score} ponto${winner.score === 1 ?'' : 's'}.`;
     } else if (payload?.winners && payload.winners.length > 1) {
       const names = payload.winners.map(w => w.name).join(', ');
       message = `Empate entre ${names}. O host pode iniciar novo desempate.`;
@@ -1031,7 +1034,7 @@
         cell.classList.add('revealed');
         setTimeout(() => cell.classList.remove('revealed'), 500);
       }
-      cell.textContent = letters ? letters[idx] || '' : '';
+      cell.textContent = letters ?letters[idx] || '' : '';
     });
     board.attemptIndex += 1;
   }
@@ -1097,7 +1100,7 @@
       if (state.roomStatus === 'lobby') {
         if (statusMessageEl) {
           statusMessageEl.textContent = state.players.length >= 2
-            ? 'Tudo pronto. O host pode iniciar a partida.'
+            ?'Tudo pronto. O host pode iniciar a partida.'
             : 'Aguardando jogadores entrarem na sala.';
         }
         if (roundInfoEl) roundInfoEl.textContent = 'Sala pronta para jogar.';
@@ -1279,7 +1282,7 @@
     toggleViews(true);
     clearGuessInputs({ focus: false });
     setGuessInputsEnabled(false, { focus: false });
-    showToast('Sala criada! Compartilhe o codigo.');
+    showToast(fromEntities('Sala criada! Compartilhe o c&oacute;digo.'));
     applyHostControls();
     updateUrlWithRoomCode(state.roomCode);
     if (state.displayName) {
@@ -1388,15 +1391,15 @@
       return null;
     }
   })();
-  applyTheme(savedTheme === 'light' ? 'light' : 'dark');
+  applyTheme(savedTheme === 'light' ?'light' : 'dark');
   themeToggleBtn?.addEventListener('click', () => {
-    applyTheme(currentTheme === 'light' ? 'dark' : 'light');
+    applyTheme(currentTheme === 'light' ?'dark' : 'light');
   });
 
   // Collapsible: Como funciona?
   if (howItWorksBtn && howItWorksPanel) {
     const setOpen = (open) => {
-      howItWorksBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      howItWorksBtn.setAttribute('aria-expanded', open ?'true' : 'false');
       if (open) {
         howItWorksPanel.hidden = false;
         const h = howItWorksPanel.scrollHeight;
@@ -1439,12 +1442,12 @@
       sanitizedName = sanitizeName(authState.user.username);
     }
     if (!sanitizedName) {
-      showToast('Informe um nome para jogar.');
+      showToast(fromEntities('Informe um nome para jogar.'));
       namePromptInput?.focus();
       return;
     }
     if (!code) {
-      showToast('Informe um código válido.');
+      showToast(fromEntities('Informe um c&oacute;digo v&aacute;lido.'));
       return;
     }
     hideNamePrompt();
@@ -1496,7 +1499,7 @@
     const player = state.players.find(p => p.playerId === data.playerId);
     if (player) {
       showToast(player.playerId === state.playerId
-        ? 'Voce agora e o host.'
+        ?'Voce agora e o host.'
         : player.name + ' agora e o host.');
     } else if (state.isHost) {
       showToast('Voce agora e o host.');
@@ -1508,14 +1511,14 @@
   socket.on('player_joined', payload => {
     if (!payload?.name) return;
     const message = payload.bot
-      ? `[BOT] ${payload.name} foi adicionado.`
+      ?`[BOT] ${payload.name} foi adicionado.`
       : `${payload.name} entrou na sala.`;
     showToast(message);
   });
   socket.on('player_left', payload => {
     if (!payload?.name) return;
     const message = payload.bot
-      ? `[BOT] ${payload.name} foi removido.`
+      ?`[BOT] ${payload.name} foi removido.`
       : `${payload.name} saiu da sala.`;
     showToast(message);
   });
@@ -1535,7 +1538,7 @@
   socket.on('tiebreaker_pending', handleTiebreakerPending);
 
   socket.on('room_error', payload => {
-    const message = payload?.error || 'Ocorreu um erro na sala.';
+    const message = payload?.error || fromEntities('Ocorreu um erro na sala.');
     showToast(message);
     if (autoJoinRequested) {
       autoJoinRequested = false;

@@ -1,8 +1,14 @@
 ;(function () {
+  const htmlDecoder = document.createElement('textarea');
+  const fromEntities = (str = '') => {
+    htmlDecoder.innerHTML = str;
+    return htmlDecoder.value;
+  };
+
   const MODES = ['total', 'classic', 'dupleto', 'quapleto'];
   const MODE_LABELS = {
     total: 'Total',
-    classic: 'Clássico',
+    classic: fromEntities('Cl&aacute;ssico'),
     dupleto: 'Dupleto',
     quapleto: 'Quapleto',
   };
@@ -114,7 +120,7 @@
       hour: '2-digit',
       minute: '2-digit',
     });
-    refs.updated.textContent = `Atualizado às ${formatted}`;
+    refs.updated.textContent = fromEntities(`Atualizado &agrave;s ${formatted}`);
   }
 
   function renderList() {
@@ -125,8 +131,8 @@
       const empty = document.createElement('p');
       empty.className = 'leaderboard-empty';
       empty.textContent = state.loading
-        ? 'Carregando ranking...'
-        : 'Nenhuma vitória registrada para este modo.';
+        ?'Carregando ranking...'
+        : fromEntities('Nenhuma vit&oacute;ria registrada para este modo.');
       refs.list.appendChild(empty);
       return;
     }
@@ -145,14 +151,14 @@
 
       const rank = document.createElement('span');
       rank.className = 'leaderboard-rank';
-      rank.textContent = entry.rank ?? '-';
+      rank.textContent = entry.rank ? entry.rank : '-';
 
       const player = document.createElement('div');
       player.className = 'leaderboard-player';
 
       const name = document.createElement('span');
       name.className = 'leaderboard-name';
-      name.textContent = entry.username || 'Anônimo';
+      name.textContent = entry.username || fromEntities('An&ocirc;nimo');
       if (entry.tag) {
         const badge = document.createElement('span');
         badge.className = 'leaderboard-tag';
@@ -170,11 +176,11 @@
       const games = entry.games ?? 0;
       const rate =
         typeof entry.winRate === 'number'
-          ? entry.winRate.toFixed(1).replace('.0', '')
+          ?entry.winRate.toFixed(1).replace('.0', '')
           : '0';
-      meta.textContent = `${wins} vitória${wins === 1 ? '' : 's'} • ${games} jogo${
+      meta.textContent = fromEntities(`${wins} vit&oacute;ria${wins === 1 ? '' : 's'} &bull; ${games} jogo${
         games === 1 ? '' : 's'
-      } • ${rate}% WR`;
+      } &bull; ${rate}% WR`);
 
       player.appendChild(name);
       player.appendChild(meta);
@@ -192,7 +198,7 @@
     refs.tabs.forEach((tab) => {
       const isActive = tab.dataset.mode === mode;
       tab.classList.toggle('active', isActive);
-      tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      tab.setAttribute('aria-selected', isActive ?'true' : 'false');
     });
     renderList();
   }
@@ -205,7 +211,7 @@
       const response = await fetch('/api/leaderboard');
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(payload?.error || 'Não foi possível carregar o ranking.');
+        throw new Error(payload?.error || fromEntities('N&atilde;o foi poss&iacute;vel carregar o ranking.'));
       }
       const leaderboard = payload?.leaderboard || {};
       state.data = {

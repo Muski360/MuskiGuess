@@ -1,7 +1,7 @@
 import random
 
 words = [
-    "abaco", "bosta", "monte", "monge", "abate", "acima", "acido", "lacre", "porco", "afeto",
+"abaco", "bosta", "monte", "monge", "abate", "acima", "acido", "lacre", "porco", "afeto",
     "agora", "ajuda", "marca", "jatos", "aluno", "amigo", "anexo", "mijar", "apelo", "nicho",
     "aroma", "atual", "aviao", "banco", "visto", "bingo", "bolha", "telha", "bravo", "cacau",
     "raios", "canto", "carro", "casal", "certa", "cesto", "cinta", "claro", "cobre", "corte",
@@ -61,17 +61,21 @@ words = [
     "obeso", "oncas", "oleos", "pacto", "padre", "papel", "pausa", "pelos", "peita", "pinga",
     "posar", "praca", "prima", "queda", "rasgo", "reter", "saldo", "senha", "surto", "tacar",
     "piada", "audio", "primo", "hifen", "harpa", "hindu", "junho", "julho", "juiza", "lasca",
-    "aerar", "milho", "cacto", "lapis", "limao", "tripa", "mosca", "manta", "marco", "pavao",
-    "panda", "cupim", "bagre", "quati", "morsa", "toras", "pouco", "poeta", "sesta", "bicas",
-    "fundo", "gaita", "tinto", "limas", "gelos", "baita", "torre", "tosse", "zonzo", "fases",
-    "mumia", "utero", "fluor", "reuso", "toldo", "troca", "taxis", "geada", "fraca", "fraco",
-    "facas", "domar", "crise", "dique", "duque", "musas", "oxala", "garca", "avaro", "tesao",
-    "daqui", "nudez", "baixa", "persa", "pingo", "cueca", "volei", "tanto", "lilas", "verba",
-    "tripe", "oxido", "turco", "album", "saque", "trote", "pedal", "enfim", "meros", "menos",
-    "reler", "dicas", "fogos", "regua", "surda", "surdo", "tango", "topar", "lider", "trupe",
-    "clero", "lirio", "palha", "adega", "tumba", "ninfa", "bamba", "globo", "vapor", "bonus",
-    "brega", "vivos", "fosco", "sarna", "sarda", "cheia", "cheio", "grego", "chata", "mansa",
-    "bobos", "vovos"
+    "milho", "cacto", "lapis", "limao", "tripa", "mosca", "manta", "marco", "pavao", "panda",
+    "cupim", "morsa", "toras", "pouco", "poeta", "sesta", "bicas", "fundo", "gaita", "tinto",
+    "limas", "gelos", "baita", "torre", "tosse", "zonzo", "fases", "mumia", "utero", "toldo",
+    "troca", "taxis", "geada", "fraca", "fraco", "facas", "domar", "crise", "dique", "duque",
+    "musas", "oxala", "garca", "avaro", "tesao", "daqui", "nudez", "baixa", "persa", "pingo",
+    "cueca", "volei", "tanto", "lilas", "verba", "oxido", "turco", "album", "saque", "trote",
+    "pedal", "enfim", "meros", "menos", "reler", "dicas", "fogos", "regua", "surda", "surdo",
+    "tango", "topar", "lider", "clero", "lirio", "palha", "adega", "tumba", "ninfa", "bamba",
+    "globo", "vapor", "bonus", "vivos", "fosco", "sarna", "sarda", "cheia", "cheio", "grego",
+    "chata", "mansa", "bobos", "vovos", "lenda", "louro", "longo", "lonas", "lombo", "lojas",
+    "lousa", "lunar", "lupas", "luvas", "macas", "macho", "macia", "macio", "macro", "magia",
+    "mapas", "mares", "meios", "melro", "menor", "nobel", "noiva", "noivo", "ombro", "opcao",
+    "poema", "rocha", "roupa", "video", "vidro", "vilao", "vinho", "larga", "meiga", "magra",
+    "velha", "pagar", "lhama", "lince", "larva", "aerar", "bagre", "brega", "fluor", "quati",
+    "reuso", "tripe", "trupe"
     ]
 # Lista EN fácil (5 letras, vocabulário simples)
 english_words_easy = [

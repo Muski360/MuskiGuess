@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8" />
@@ -17,13 +17,13 @@
     <div class="app" id="appRoot">
         <div class="top-bar">
           <nav class="mode-menu" aria-label="Game modes">
-            <button id="menuClassic" class="menu-item active" data-mode="single">Clássico</button>
+            <button id="menuClassic" class="menu-item active" data-mode="single">Cl&aacute;ssico</button>
             <button id="menuDuplet" class="menu-item" data-mode="duet">Dupleto</button>
             <button id="menuQuaplet" class="menu-item" data-mode="quaplet">Quapleto</button>
             <button id="menuMultiplayer" class="menu-item">Multiplayer</button>
           </nav>
           <div class="top-bar-actions">
-            <button id="leaderboardBtn" class="leaderboard-btn" type="button" aria-haspopup="dialog" title="Ver ranking de vitórias">
+            <button id="leaderboardBtn" class="leaderboard-btn" type="button" aria-haspopup="dialog" title="Ver ranking de vit&oacute;rias">
               <span class="leaderboard-icon" aria-hidden="true"></span>
               <span class="leaderboard-label">Ranking</span>
             </button>
@@ -53,7 +53,7 @@
     <div id="overlay" class="overlay hidden">
       <div class="modal">
         <h2>Fim de jogo</h2>
-        <p>A palavra correta era: <span id="correctWord"></span></p>
+        <p>Suas tentativas acabaram. Tente novamente!</p>
         <div class="modal-actions">
           <button id="playAgainBtn">Jogar novamente</button>
         </div>
@@ -65,23 +65,25 @@
 
     <div id="langOverlay" class="overlay hidden">
       <div class="modal">
-        <h2>🌐 Escolha o idioma das palavras</h2>
+        <h2>&#127760; Escolha o idioma das palavras</h2>
         <div class="lang-grid">
           <button id="langPt" class="lang-btn">
             <img class="flag-img" src="static/images/brazil_flag.jpg" alt="Brasil" />
-            Português
+            Portugu&ecirc;s
           </button>
           <button id="langEn" class="lang-btn">
             <img class="flag-img" src="static/images/usa_flag.svg" alt="USA" />
-            Inglês
+            Ingl&ecirc;s
           </button>
         </div>
       </div>
     </div>
 
-    <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme">🌙</button>
+    <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme">
+      <img id="themeToggleIcon" src="static/images/night-mode.svg" alt="Alternar tema" />
+    </button>
     
-    <!-- Novo botão de temas com sidebar -->
+    <!-- Novo bot&atilde;o de temas com sidebar -->
     <div class="theme-container">
       <button id="themeBrushBtn" class="theme-brush-btn" aria-label="Selecionar tema" title="Selecionar tema">
         <img id="themeBrushIcon" src="static/images/brush_white.svg" alt="Temas" />
@@ -102,32 +104,28 @@
     <button id="langWorld" class="lang-world" aria-label="Trocar linguagem" title="Trocar linguagem">
       <img class="world-icon" src="static/images/worldicon.svg" alt="Language" />
     </button>
-    <button id="infoBtn" class="info-btn" aria-label="Informações" title="Informações">?</button>
+    <button id="infoBtn" class="info-btn" aria-label="Informa&ccedil;&otilde;es" title="Informa&ccedil;&otilde;es">?</button>
 
     <div id="helpOverlay" class="overlay hidden">
       <div class="modal">
         <h2 id="helpTitle">Como jogar</h2>
         <div class="help-grid">
           <div class="cell example gray"><span>A</span></div>
-          <div class="desc" id="helpGray">A letra não existe na palavra.</div>
+          <div class="desc" id="helpGray">A letra n&atilde;o existe na palavra.</div>
           <div class="cell example yellow"><span>B</span></div>
-          <div class="desc" id="helpYellow">A letra existe mas em outra posição.</div>
+          <div class="desc" id="helpYellow">A letra existe mas em outra posi&ccedil;&atilde;o.</div>
           <div class="cell example green"><span>C</span></div>
-          <div class="desc" id="helpGreen">A letra está na posição correta.</div>
+          <div class="desc" id="helpGreen">A letra est&aacute; na posi&ccedil;&atilde;o correta.</div>
         </div>
-        <p id="helpTries" class="help-tries">Você tem 6 tentativas para adivinhar a palavra de 5 letras.</p>
+        <p id="helpTries" class="help-tries">Voc&ecirc; tem 6 tentativas para adivinhar a palavra de 5 letras.</p>
         <div class="secrets">
           <button id="secretsBtn" class="secondary"></button>
           <div id="secretsContent">
             <h3 id="secretsSectionTitle">Segredos Especiais</h3>
-            <p id="secretsSectionText">Digite estas palavras especiais para ativar poderes únicos:</p>
+            <p id="secretsSectionText">Digite a palavra especial para ativar um poder &uacute;nico:</p>
             <div class="secret-item">
-              <h4 id="secretMuskiTitle">MUSKI</h4>
-              <p id="secretMuskiText">Revela uma letra aleatória que ainda não foi descoberta. Não consome tentativa.</p>
-            </div>
-            <div class="secret-item">
-              <h4 id="secretBillyTitle">BILLY</h4>
-              <p id="secretBillyText">Revela a palavra correta do jogo atual.</p>
+              <h4 id="secretHackrTitle">HACKR</h4>
+              <p id="secretHackrText">Ativa a chuva de n&uacute;meros verdes em estilo Matrix.</p>
             </div>
           </div>
         </div>
@@ -141,7 +139,7 @@
       <div class="modal">
         <h2 id="infoTitle">Sobre o Jogo</h2>
         <div class="info-content">
-          <p id="infoText">Criado por Muski360, este jogo é uma versão única inspirada no Termo e no Wordle, feito por IA.</p>
+          <p id="infoText">Criado por Muski360, este jogo &eacute; uma vers&atilde;o &uacute;nica inspirada no Termo e no Wordle, feito por IA.</p>
           <div class="github-link">
             <a href="https://github.com/Muski360/MuskiGuess" target="_blank" rel="noopener noreferrer" class="github-btn">
               <svg class="github-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -165,7 +163,7 @@
         <div class="leaderboard-header">
           <div>
             <p class="leaderboard-eyebrow">Hall da fama</p>
-            <h2 id="leaderboardTitle">Ranking de vitórias</h2>
+            <h2 id="leaderboardTitle">Ranking de vit&oacute;rias</h2>
           </div>
           <span id="leaderboardUpdated" class="leaderboard-updated"></span>
         </div>
@@ -187,3 +185,4 @@
     <script src="/static/main.js"></script>
 </body>
 </html>
+

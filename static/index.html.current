@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MuskiGuess</title>
+    <link rel="icon" type="image/png" sizes="1024x1024" href="/static/images/LogoIcon.png?">
+    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app" id="appRoot">
+        <div class="top-bar">
+          <nav class="mode-menu" aria-label="Game modes">
+            <button id="menuClassic" class="menu-item active" data-mode="single">Clssico</button>
+            <button id="menuDuplet" class="menu-item" data-mode="duet">Dupleto</button>
+            <button id="menuQuaplet" class="menu-item" data-mode="quaplet">Quapleto</button>
+            <button id="menuMultiplayer" class="menu-item">Multiplayer</button>
+          </nav>
+          <div class="top-bar-actions">
+            <button id="leaderboardBtn" class="leaderboard-btn" type="button" aria-haspopup="dialog" title="Ver ranking de vitrias">
+              <span class="leaderboard-icon" aria-hidden="true"></span>
+              <span class="leaderboard-label">Ranking</span>
+            </button>
+            <div id="authControls" class="auth-controls"></div>
+          </div>
+        </div>
+
+        <div class="logo-container">
+            <img id="logoImage" src="static/images/Logo_noBackground.png" alt="MuskiGuess Logo" class="logo-image" />
+        </div>
+        <h1>MuskiGuess</h1>
+        <div class="controls">
+            <button id="newGameBtn">Novo jogo</button>
+            <div id="status"></div>
+        </div>
+
+        <div id="board" class="board" aria-label="Tabuleiro do jogo"></div>
+        <p class="hint"></p>
+
+        <div class="bottom-actions">
+          <button id="helpBtn" class="secondary"></button>
+        </div>
+
+        <div id="keyboard" class="keyboard"></div>
+    </div>
+
+    <div id="overlay" class="overlay hidden">
+      <div class="modal">
+        <h2>Fim de jogo</h2>
+        <p>Suas tentativas acabaram. Tente novamente!</p>
+        <div class="modal-actions">
+          <button id="playAgainBtn">Jogar novamente</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden">Parab&eacute;ns, voc&ecirc; conseguiu!</div>
+    <canvas id="confettiCanvas" class="confetti hidden"></canvas>
+
+    <div id="langOverlay" class="overlay hidden">
+      <div class="modal">
+        <h2> Escolha o idioma das palavras</h2>
+        <div class="lang-grid">
+          <button id="langPt" class="lang-btn">
+            <img class="flag-img" src="static/images/brazil_flag.jpg" alt="Brasil" />
+            Portugus
+          </button>
+          <button id="langEn" class="lang-btn">
+            <img class="flag-img" src="static/images/usa_flag.svg" alt="USA" />
+            Ingls
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme"></button>
+    
+    <!-- Novo boto de temas com sidebar -->
+    <div class="theme-container">
+      <button id="themeBrushBtn" class="theme-brush-btn" aria-label="Selecionar tema" title="Selecionar tema">
+        <img id="themeBrushIcon" src="static/images/brush_white.svg" alt="Temas" />
+      </button>
+      <div id="themeSidebar" class="theme-sidebar">
+        <div class="theme-grid">
+          <button class="theme-btn" data-theme="blue" title="Tema Azul"><span class="theme-dot blue"></span></button>
+          <button class="theme-btn" data-theme="green" title="Tema Verde"><span class="theme-dot green"></span></button>
+          <button class="theme-btn" data-theme="red" title="Tema Vermelho"><span class="theme-dot red"></span></button>
+          <button class="theme-btn" data-theme="purple" title="Tema Roxo"><span class="theme-dot purple"></span></button>
+          <button class="theme-btn" data-theme="yellow" title="Tema Amarelo"><span class="theme-dot yellow"></span></button>
+          <button class="theme-btn" data-theme="orange" title="Tema Laranja"><span class="theme-dot orange"></span></button>
+          <button class="theme-btn" data-theme="gold" title="Tema Dourado"><span class="theme-dot gold"></span></button>
+          <button class="theme-btn" data-theme="pink" title="Tema Rosa"><span class="theme-dot pink"></span></button>
+        </div>
+      </div>
+    </div>
+    <button id="langWorld" class="lang-world" aria-label="Trocar linguagem" title="Trocar linguagem">
+      <img class="world-icon" src="static/images/worldicon.svg" alt="Language" />
+    </button>
+    <button id="infoBtn" class="info-btn" aria-label="Informaes" title="Informaes">?</button>
+
+    <div id="helpOverlay" class="overlay hidden">
+      <div class="modal">
+        <h2 id="helpTitle">Como jogar</h2>
+        <div class="help-grid">
+          <div class="cell example gray"><span>A</span></div>
+          <div class="desc" id="helpGray">A letra no existe na palavra.</div>
+          <div class="cell example yellow"><span>B</span></div>
+          <div class="desc" id="helpYellow">A letra existe mas em outra posio.</div>
+          <div class="cell example green"><span>C</span></div>
+          <div class="desc" id="helpGreen">A letra est na posio correta.</div>
+        </div>
+        <p id="helpTries" class="help-tries">Voc tem 6 tentativas para adivinhar a palavra de 5 letras.</p>
+        <div class="secrets">
+          <button id="secretsBtn" class="secondary"></button>
+          <div id="secretsContent">
+            <h3 id="secretsSectionTitle">Segredos Especiais</h3>
+            <p id="secretsSectionText">Digite esta palavra especial para ativar um poder nico:</p>
+            <div class="secret-item">
+              <h4 id="secretHackrTitle">HACKR</h4>
+              <p id="secretHackrText">Ativa a chuva de nmeros verdes em estilo Matrix.</p>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button id="helpCloseBtn">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="infoOverlay" class="overlay hidden">
+      <div class="modal">
+        <h2 id="infoTitle">Sobre o Jogo</h2>
+        <div class="info-content">
+          <p id="infoText">Criado por Muski360, este jogo  uma verso nica inspirada no Termo e no Wordle, feito por IA.</p>
+          <div class="github-link">
+            <a href="https://github.com/Muski360/MuskiGuess" target="_blank" rel="noopener noreferrer" class="github-btn">
+              <svg class="github-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+              </svg>
+              <span id="githubText">Ver no GitHub</span>
+            </a>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button id="infoCloseBtn">OK</button>
+        </div>
+      </div>
+    </div>
+
+
+
+    <div id="leaderboardModal" class="leaderboard-modal hidden" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
+      <div class="leaderboard-card">
+        <button type="button" class="leaderboard-close" aria-label="Fechar ranking" data-leaderboard-close>&times;</button>
+        <div class="leaderboard-header">
+          <div>
+            <p class="leaderboard-eyebrow">Hall da fama</p>
+            <h2 id="leaderboardTitle">Ranking de vitrias</h2>
+          </div>
+          <span id="leaderboardUpdated" class="leaderboard-updated"></span>
+        </div>
+        <div class="leaderboard-tabs" role="tablist">
+          <button class="leaderboard-tab active" data-mode="total" role="tab" aria-selected="true">Total</button>
+          <button class="leaderboard-tab" data-mode="classic" role="tab" aria-selected="false">Cl&aacute;ssico</button>
+          <button class="leaderboard-tab" data-mode="dupleto" role="tab" aria-selected="false">Dupleto</button>
+          <button class="leaderboard-tab" data-mode="quapleto" role="tab" aria-selected="false">Quapleto</button>
+        </div>
+        <div id="leaderboardStatus" class="leaderboard-status"></div>
+        <div id="leaderboardList" class="leaderboard-list" role="tabpanel" aria-live="polite"></div>
+      </div>
+    </div>
+    <script defer src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@1.0.35/dist/lenis.min.js"></script>
+    <script defer src="/static/smooth-scroll.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="/static/leaderboard.js"></script>
+    <script src="/static/auth.js"></script>
+    <script src="/static/main.js"></script>
+</body>
+</html>
+

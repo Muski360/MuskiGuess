@@ -1,6 +1,12 @@
 ;(function () {
+  const htmlDecoder = document.createElement('textarea');
+  const fromEntities = (str = '') => {
+    htmlDecoder.innerHTML = str;
+    return htmlDecoder.value;
+  };
+
   const MODE_LABELS = {
-    classic: 'Clássico',
+    classic: fromEntities('Cl&aacute;ssico'),
     dupleto: 'Dupleto',
     quapleto: 'Quapleto',
     multiplayer: 'Multiplayer',
@@ -31,7 +37,7 @@
 
   function getUserInitial(user) {
     const source = (user?.username || user?.email || '').trim();
-    return source ? source.charAt(0).toUpperCase() : '?';
+    return source ?source.charAt(0).toUpperCase() : '?';
   }
 
   function setProfileMenuOpen(menu, isOpen) {
@@ -137,7 +143,7 @@
           <h2 id="registerTitle">Criar conta</h2>
           <form id="registerForm" class="auth-form">
             <label>
-              <span>Usuário</span>
+              <span>Usu&aacute;rio</span>
               <input type="text" name="username" required minlength="1" maxlength="12" pattern="[A-Za-z0-9]{1,12}" autocomplete="nickname" />
             </label>
             <label>
@@ -161,7 +167,7 @@
       <div class="auth-modal hidden" id="statsModal" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
         <div class="auth-modal-card auth-modal-wide">
           <button type="button" class="auth-modal-close" data-auth-close>&times;</button>
-          <h2 id="statsTitle">Suas estatísticas</h2>
+          <h2 id="statsTitle">Suas estat&iacute;sticas</h2>
           <div class="auth-status" id="statsStatus"></div>
           <div class="stats-table-wrapper">
             <table class="stats-table">
@@ -169,10 +175,10 @@
                 <tr>
                   <th>Modo</th>
                   <th>Jogos</th>
-                  <th>Vitórias</th>
+                  <th>Vit&oacute;rias</th>
                   <th>Derrotas</th>
                   <th>Multiplayer Jogos</th>
-                  <th>Multiplayer Vitórias</th>
+                  <th>Multiplayer Vit&oacute;rias</th>
                   <th>Multiplayer Derrotas</th>
                 </tr>
               </thead>
@@ -189,7 +195,16 @@
     [refs.loginModal, refs.registerModal, refs.statsModal].forEach((modal) => {
       if (!modal) return;
       modal.addEventListener('click', (event) => {
-        if (event.target === modal || event.target?.dataset?.authClose !== undefined) {
+        const isBackdrop = event.target === modal;
+        const isCloseBtn = event.target?.dataset?.authClose !== undefined;
+        const isAuthModal = modal.id === 'loginModal' || modal.id === 'registerModal';
+        // For login/register, only the explicit close button should close.
+        if (isAuthModal) {
+          if (isCloseBtn) closeModal(modal);
+          return;
+        }
+        // Stats modal keeps backdrop close behavior.
+        if (isBackdrop || isCloseBtn) {
           closeModal(modal);
         }
       });
@@ -248,7 +263,7 @@
         body: JSON.stringify({ email, password }),
       });
       if (!ok) {
-        const message = data?.error || 'Não foi possível entrar.';
+        const message = data?.error || fromEntities('N&atilde;o foi poss&iacute;vel entrar.');
         if (errorEl) errorEl.textContent = message;
         return;
       }
@@ -256,7 +271,7 @@
       setUser(data.user || null);
       await refreshStats(true);
     } catch (err) {
-      if (errorEl) errorEl.textContent = 'Erro de conexão. Tente novamente.';
+      if (errorEl) errorEl.textContent = fromEntities('Erro de conex&atilde;o. Tente novamente.');
     } finally {
       setLoading(form, false);
     }
@@ -275,7 +290,7 @@
     };
     const confirmPassword = formData.get('confirmPassword');
     if (String(payload.password || '') !== String(confirmPassword || '')) {
-      if (errorEl) errorEl.textContent = 'As senhas não conferem.';
+      if (errorEl) errorEl.textContent = fromEntities('As senhas n&atilde;o conferem.');
       return;
     }
     setLoading(form, true);
@@ -285,9 +300,9 @@
         body: JSON.stringify(payload),
       });
       if (!ok) {
-        let message = 'Não foi possível cadastrar.';
+        let message = fromEntities('N&atilde;o foi poss&iacute;vel cadastrar.');
         if (status === 409) {
-          message = data?.errors?.email || 'E-mail já cadastrado.';
+          message = data?.errors?.email || fromEntities('E-mail j&aacute; cadastrado.');
         } else if (data?.errors) {
           message = Object.values(data.errors)[0] || message;
         } else if (data?.error) {
@@ -300,7 +315,7 @@
       setUser(data.user || null);
       await refreshStats(true);
     } catch (err) {
-      if (errorEl) errorEl.textContent = 'Erro de conexão. Tente novamente.';
+      if (errorEl) errorEl.textContent = fromEntities('Erro de conex&atilde;o. Tente novamente.');
     } finally {
       setLoading(form, false);
     }
@@ -310,7 +325,7 @@
     try {
       await fetchJSON('/logout', { method: 'POST', body: JSON.stringify({}) });
     } catch (err) {
-      console.warn('Falha ao encerrar sessão', err);
+      console.warn(fromEntities('Falha ao encerrar sess&atilde;o'), err);
     }
     setUser(null);
   }
@@ -368,7 +383,7 @@
 
       const name = document.createElement('span');
       name.className = 'profile-name';
-      name.textContent = state.user.username || state.user.email || 'Usuário';
+      name.textContent = state.user.username || state.user.email || fromEntities('Usu&aacute;rio');
 
       label.appendChild(greeting);
       label.appendChild(name);
@@ -388,7 +403,7 @@
       const statsAction = document.createElement('button');
       statsAction.type = 'button';
       statsAction.className = 'profile-action';
-      statsAction.textContent = 'Estatísticas';
+      statsAction.textContent = fromEntities('Estat&iacute;sticas');
       statsAction.addEventListener('click', () => {
         setProfileMenuOpen(profileMenu, false);
         openStatsModal();
@@ -429,7 +444,7 @@
       const row = document.createElement('tr');
       const cell = document.createElement('td');
       cell.colSpan = 7;
-      cell.textContent = 'Nenhuma estatística disponível.';
+      cell.textContent = fromEntities('Nenhuma estat&iacute;stica dispon&iacute;vel.');
       row.appendChild(cell);
       refs.statsBody.appendChild(row);
       return;
@@ -446,11 +461,11 @@
       const cells = [
         { label: 'Modo', value: escapeHtml(MODE_LABELS[entry.mode] || entry.mode || '') },
         { label: 'Jogos', value: entry?.num_games ?? 0 },
-        { label: 'Vitórias', value: entry?.num_wins ?? 0 },
+        { label: fromEntities('Vit&oacute;rias'), value: entry?.num_wins ?? 0 },
         { label: 'Derrotas', value: losses },
-        { label: 'Multiplayer Jogos', value: mpGames != null ? mpGames : '—' },
-        { label: 'Multiplayer Vitórias', value: mpWins != null ? mpWins : '—' },
-        { label: 'Multiplayer Derrotas', value: mpLosses != null ? mpLosses : '—' },
+        { label: 'Multiplayer Jogos', value: mpGames != null ? mpGames : fromEntities('&mdash;') },
+        { label: fromEntities('Multiplayer Vit&oacute;rias'), value: mpWins != null ? mpWins : fromEntities('&mdash;') },
+        { label: 'Multiplayer Derrotas', value: mpLosses != null ? mpLosses : fromEntities('&mdash;') },
       ];
 
       cells.forEach((cell) => {
@@ -475,19 +490,19 @@
     if (state.statsLoaded && !force) return state.stats;
     state.statsLoading = true;
     if (refs.statsStatus) {
-      refs.statsStatus.textContent = 'Carregando estatísticas...';
+      refs.statsStatus.textContent = fromEntities('Carregando estat&iacute;sticas...');
       refs.statsStatus.classList.remove('error');
     }
     try {
       const { ok, data } = await fetchJSON('/api/stats', { method: 'GET' });
       if (!ok) {
         if (refs.statsStatus) {
-          refs.statsStatus.textContent = data?.error || 'Não foi possível carregar as estatísticas.';
+          refs.statsStatus.textContent = data?.error || fromEntities('N&atilde;o foi poss&iacute;vel carregar as estat&iacute;sticas.');
           refs.statsStatus.classList.add('error');
         }
         return state.stats;
       }
-      state.stats = Array.isArray(data?.stats) ? data.stats : [];
+      state.stats = Array.isArray(data?.stats) ?data.stats : [];
       state.statsLoaded = true;
       if (refs.statsStatus) {
         refs.statsStatus.textContent = '';
@@ -496,7 +511,7 @@
       notifyListeners();
     } catch (err) {
       if (refs.statsStatus) {
-        refs.statsStatus.textContent = 'Erro de conexão ao carregar as estatísticas.';
+        refs.statsStatus.textContent = fromEntities('Erro de conex&atilde;o ao carregar as estat&iacute;sticas.');
         refs.statsStatus.classList.add('error');
       }
     } finally {

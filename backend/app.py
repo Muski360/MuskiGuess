@@ -73,7 +73,6 @@ with app.app_context():
     db.create_all()
 
 games = {}
-next_game_id = 1
 multiplayer_rooms = {}
 player_room_index = {}
 _room_gc_started = False
@@ -251,14 +250,12 @@ def _game_meta(game):
         if meta is None:
             meta = {}
             setattr(game, "meta", meta)
-        meta.setdefault("cheat_used", False)
         return meta
     if isinstance(game, dict):
         meta = game.get("meta")
         if meta is None:
             meta = {}
             game["meta"] = meta
-        meta.setdefault("cheat_used", False)
         return meta
     return {}
 
@@ -266,9 +263,6 @@ def _game_meta(game):
 def _record_singleplayer_stats_if_needed(game, won: bool):
     meta = _game_meta(game)
     if not meta or meta.get("stats_recorded"):
-        return
-    if meta.get("cheat_used") and won:
-        meta["stats_recorded"] = True
         return
     user_id = meta.get("user_id")
     mode = meta.get("mode")
@@ -904,7 +898,6 @@ def _finalize_round(room: dict, *, winner_sid=None, was_draw: bool = False):
             "round": room.get("round_index", 0),
             "winner": winner_payload["playerId"] if winner_payload else None,
             "draw": was_draw,
-            "word": room["current_word"].upper() if room.get("current_word") else "",
             "isTiebreaker": is_tiebreaker,
         }
     )
@@ -915,7 +908,6 @@ def _finalize_round(room: dict, *, winner_sid=None, was_draw: bool = False):
             "winner": winner_payload,
             "draw": was_draw,
             "isTiebreaker": is_tiebreaker,
-            "correctWord": room["current_word"].upper() if room.get("current_word") else "",
             "scoreboard": _scoreboard_snapshot(room),
         },
         to=room["code"],
@@ -1393,7 +1385,6 @@ def handle_disconnect():
 
 @app.post("/api/new-game")
 def new_game():
-    global next_game_id
     data = request.get_json(silent=True) or {}
     lang = (data.get("lang") or 'pt').lower()
     mode = (data.get("mode") or 'single').lower()
@@ -1403,8 +1394,7 @@ def new_game():
     stats_mode = _resolve_stats_mode(mode, word_count)
     user_id = session.get("user_id")
 
-    game_id = str(next_game_id)
-    next_game_id += 1
+    game_id = uuid4().hex
 
     if word_count == 1:
         # Keep existing Termo behavior for backward compatibility
@@ -1417,7 +1407,6 @@ def new_game():
                 "mode": stats_mode,
                 "user_id": user_id,
                 "stats_recorded": False,
-                "cheat_used": False,
             }
         )
         games[game_id] = game
@@ -1443,7 +1432,6 @@ def new_game():
             "mode": stats_mode,
             "user_id": user_id,
             "stats_recorded": False,
-            "cheat_used": False,
         },
     }
     return jsonify({
@@ -1472,7 +1460,6 @@ def make_guess():
 
         feedback_list = []
         won_all = True
-        correct_words_upper = []
         for idx, word in enumerate(game["words"]):
             fb = _check_guess_statuses_for_word(word, guess)
             feedback_list.append(fb)
@@ -1482,7 +1469,6 @@ def make_guess():
                 game["won_mask"][idx] = True
             if not game["won_mask"][idx]:
                 won_all = False
-            correct_words_upper.append(word.upper())
 
         game["attempts"] += 1
         game_over = game["attempts"] >= game["max_attempts"] or won_all
@@ -1495,7 +1481,6 @@ def make_guess():
         }
         response["gameId"] = game_id
         if game_over:
-            response["correctWords"] = correct_words_upper
             _record_singleplayer_stats_if_needed(game, won_all)
         return jsonify(response)
 
@@ -1513,23 +1498,9 @@ def make_guess():
         "gameOver": game_over,
     }
     response["gameId"] = game_id
-    if won or game_over:
-        response["correctWord"] = game.word.upper()
     if game_over:
         _record_singleplayer_stats_if_needed(game, won)
     return jsonify(response)
-
-@app.get("/api/peek")
-def peek_correct_word():
-    game_id = request.args.get("gameId", type=str)
-    if not game_id or game_id not in games:
-        return jsonify({"error": "Jogo não encontrado"}), 404
-    game = games[game_id]
-    meta = _game_meta(game)
-    meta["cheat_used"] = True
-    if isinstance(game, dict) and game.get("type") == "multi":
-        return jsonify({"correctWords": [w.upper() for w in game["words"]]})
-    return jsonify({"correctWord": game.word.upper()})
 
 @app.get("/api/check-word")
 def check_word():

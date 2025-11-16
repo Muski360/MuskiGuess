@@ -661,24 +661,18 @@ body.leaderboard-open {
 
 .leaderboard-close {
   position: absolute;
-  top: 18px;
-  right: 18px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
+  top: 12px;
+  right: 12px;
+  border: none;
   background: transparent;
-  color: var(--text);
-  font-size: 1.4rem;
+  color: var(--muted);
+  font-size: 1.5rem;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   line-height: 1;
-  transition: background 0.2s ease, color 0.2s ease;
 }
 
 .leaderboard-close:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--accent-color);
+  color: var(--text);
 }
 
 .leaderboard-header {
@@ -1419,6 +1413,24 @@ h1 {
 .modal-actions { margin-top: 12px; }
 .modal-actions button { min-width: 160px; }
 
+#infoOverlay .modal-actions button {
+  min-width: 0;
+  width: 100%;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  transition: background 0.2s ease, transform 0.15s ease;
+  cursor: pointer;
+}
+
+#infoOverlay .modal-actions button:hover {
+  background: var(--panel);
+  transform: translateY(-1px);
+}
+
 #overlay .modal,
 #langOverlay .modal {
   width: min(480px, 92vw);
@@ -1623,6 +1635,12 @@ h1 {
   line-height: 1 !important;
   font-size: 18px !important;
   transition: all 0.3s ease;
+}
+
+.theme-toggle img {
+  width: 22px;
+  height: 22px;
+  display: block;
 }
 
 .theme-toggle:hover {
