@@ -5364,39 +5364,39 @@ const themes = {
 
     dark: {
 
-      bg: '#1a0b05',
+      bg: '#160905',
 
-      panel: '#261108',
+      panel: '#20100a',
 
-      text: '#ffe7d1',
+      text: '#ffe0c4',
 
-      muted: '#fb923c',
+      muted: '#f19952',
 
-      green: '#f97316',
+      green: '#f18b3d',
 
-      yellow: '#fb923c',
+      yellow: '#f6a25c',
 
       gray: '#9a6b52',
 
-      surface: '#32140a',
+      surface: '#1f0f09',
 
-      border: 'rgba(249, 115, 22, 0.35)',
+      border: 'rgba(241, 139, 61, 0.35)',
 
-      buttonBg: 'linear-gradient(180deg, #f97316 0%, #2a1208 100%)',
+      buttonBg: 'linear-gradient(180deg, #f18b3d 0%, #1f0f09 100%)',
 
-      buttonBorder: 'rgba(249, 115, 22, 0.5)',
+      buttonBorder: 'rgba(241, 139, 61, 0.45)',
 
-      toastBg: '#f97316',
+      toastBg: '#f18b3d',
 
       toastText: '#431407',
 
       worldIcon: 'static/images/worldicon2.svg',
 
-      background: 'radial-gradient(1150px 580px at 12% 8%, rgba(249, 115, 22, 0.35) 0%, #1a0b05 65%)',
+      background: 'radial-gradient(1000px 520px at 12% 10%, rgba(228, 132, 61, 0.22) 0%, #160905 60%)',
 
-      accentColor: '#fb923c',
+      accentColor: '#f19952',
 
-      accentBg: 'rgba(249, 115, 22, 0.18)'
+      accentBg: 'rgba(241, 153, 82, 0.16)'
 
     },
 

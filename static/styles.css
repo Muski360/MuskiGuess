@@ -1087,13 +1087,13 @@ h1 {
   padding: 12px 0;
   border-radius: 999px;
   border: none;
-  background: linear-gradient(135deg, var(--accent-color), rgba(59, 130, 246, 0.75));
+  background: linear-gradient(135deg, var(--accent-color), rgba(255, 255, 255, 0.06));
   color: #fff;
   font-size: 0.95rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   text-transform: none;
-  box-shadow: 0 12px 30px rgba(59, 130, 246, 0.35);
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--accent-color) 45%, transparent);
   transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
   cursor: pointer;
 }
