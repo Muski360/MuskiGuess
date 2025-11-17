@@ -1777,8 +1777,10 @@ body.theme-locked .theme-container .theme-sidebar {
 
 .theme-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  justify-items: center;
+  align-items: center;
 }
 
 .theme-btn {
@@ -1808,8 +1810,6 @@ body.theme-locked .theme-container .theme-sidebar {
 .theme-dot.green { background-color: #10b981; }
 .theme-dot.red { background-color: #ef4444; }
 .theme-dot.purple { background-color: #a78bfa; }
-.theme-dot.yellow { background-color: #f59e0b; }
-.theme-dot.orange { background-color: #ea580c; }
 .theme-dot.gold { background: linear-gradient(135deg, #facc15 0%, #f59e0b 100%); box-shadow: inset 0 0 6px rgba(255, 255, 255, 0.35); }
 .theme-dot.pink { background-color: #ec4899; }
 
