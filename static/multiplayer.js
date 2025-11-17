@@ -778,7 +778,7 @@
 
         const scoreSpan = document.createElement('span');
         scoreSpan.className = 'mp-score-points';
-        scoreSpan.textContent = String(player.score ?0);
+        scoreSpan.textContent = String(player.score ?? 0);
 
         li.append(nameSpan, scoreSpan);
         scoreboardList.appendChild(li);

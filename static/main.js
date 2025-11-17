@@ -4805,7 +4805,7 @@ const themes = {
       toastText: '#052e16',
 
 
-      worldIcon: 'static/images/worldicon2.svg',
+      worldIcon: 'images/worldicon2.svg',
 
 
       background: 'radial-gradient(1200px 600px at 10% 10%, #0b1225 0%, var(--bg) 60%)',
@@ -4862,7 +4862,7 @@ const themes = {
       toastText: '#052e16',
 
 
-      worldIcon: 'static/images/worldicon.svg',
+      worldIcon: 'images/worldicon.svg',
 
 
       background: 'linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)',
@@ -4925,7 +4925,7 @@ const themes = {
       toastText: '#064e3b',
 
 
-      worldIcon: 'static/images/worldicon2.svg',
+      worldIcon: 'images/worldicon2.svg',
 
 
       background: 'radial-gradient(1200px 600px at 10% 10%, #064e3b 0%, var(--bg) 60%)',
@@ -4982,7 +4982,7 @@ const themes = {
       toastText: '#064e3b',
 
 
-      worldIcon: 'static/images/worldicon.svg',
+      worldIcon: 'images/worldicon.svg',
 
 
       background: 'linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%)',
@@ -5045,7 +5045,7 @@ const themes = {
       toastText: '#3e0a0a',
 
 
-      worldIcon: 'static/images/worldicon2.svg',
+      worldIcon: 'images/worldicon2.svg',
 
 
       background: 'radial-gradient(1200px 600px at 10% 10%, #3e0a0a 0%, var(--bg) 60%)',
@@ -5102,7 +5102,7 @@ const themes = {
       toastText: '#3e0a0a',
 
 
-      worldIcon: 'static/images/worldicon.svg',
+      worldIcon: 'images/worldicon.svg',
 
 
       background: 'linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%)',
@@ -5165,7 +5165,7 @@ const themes = {
       toastText: '#2e1065',
 
 
-      worldIcon: 'static/images/worldicon2.svg',
+      worldIcon: 'images/worldicon2.svg',
 
 
       background: 'radial-gradient(1200px 600px at 10% 10%, #190a2b 0%, var(--bg) 60%)',
@@ -5222,7 +5222,7 @@ const themes = {
       toastText: '#2e1065',
 
 
-      worldIcon: 'static/images/worldicon.svg',
+      worldIcon: 'images/worldicon.svg',
 
 
       background: 'linear-gradient(180deg, #faf5ff 0%, #f3e8ff 100%)',
@@ -5283,7 +5283,7 @@ const themes = {
       toastText: '#26170a',
 
 
-      worldIcon: 'static/images/worldicon2.svg',
+      worldIcon: 'images/worldicon2.svg',
 
 
       background: 'radial-gradient(900px 520px at 12% 12%, #2b1d10 0%, #120d06 55%)',
@@ -5340,7 +5340,7 @@ const themes = {
       toastText: '#422006',
 
 
-      worldIcon: 'static/images/worldicon.svg',
+      worldIcon: 'images/worldicon.svg',
 
 
       background: 'linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%)',
@@ -5403,7 +5403,7 @@ const themes = {
       toastText: '#3e0a1a',
 
 
-      worldIcon: 'static/images/worldicon2.svg',
+      worldIcon: 'images/worldicon2.svg',
 
 
       background: 'radial-gradient(1200px 600px at 10% 10%, #3e0a1a 0%, var(--bg) 60%)',
@@ -5460,7 +5460,7 @@ const themes = {
       toastText: '#3e0a1a',
 
 
-      worldIcon: 'static/images/worldicon.svg',
+      worldIcon: 'images/worldicon.svg',
 
 
       background: 'linear-gradient(180deg, #fdf2f8 0%, #fce7f3 100%)',
@@ -5642,7 +5642,7 @@ function applyTheme() {
   if (brushIcon) {
 
 
-    brushIcon.src = darkMode ? 'static/images/brush_white.svg' : 'static/images/brush_black.svg';
+    brushIcon.src = darkMode ? 'images/brush_white.svg' : 'images/brush_black.svg';
 
 
   }
@@ -5665,7 +5665,7 @@ function applyTheme() {
 
   if (themeToggleIcon) {
     // Show the opposite icon to indicate the next state
-    themeToggleIcon.src = darkMode ? 'static/images/light-mode.svg' : 'static/images/night-mode.svg';
+    themeToggleIcon.src = darkMode ? 'images/light-mode.svg' : 'images/night-mode.svg';
     themeToggleIcon.alt = darkMode ? 'Tema claro' : 'Tema escuro';
   }
 
