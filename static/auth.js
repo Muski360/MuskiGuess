@@ -1,4 +1,4 @@
-;(function (window) {
+﻿;(function (window) {
   const utils = window.muskiUtils;
   const supabaseClient = window.supabaseClient;
   const profiles = window.profiles;
@@ -135,7 +135,7 @@
     if (state.statsLoaded && !force) return state.stats;
     state.statsLoading = true;
     if (refs.statsStatus) {
-      refs.statsStatus.textContent = 'Carregando estatísticas...';
+      refs.statsStatus.textContent = 'Carregando estatÃ­sticas...';
       refs.statsStatus.classList.remove('error');
     }
     try {
@@ -147,7 +147,7 @@
       if (refs.statsStatus) refs.statsStatus.textContent = '';
       utils.testLog('auth.refreshStats');
     } catch (err) {
-      const message = utils.normalizeError(err, 'Erro ao carregar estatísticas.');
+      const message = utils.normalizeError(err, 'Erro ao carregar estatÃ­sticas.');
       if (refs.statsStatus) {
         refs.statsStatus.textContent = message;
         refs.statsStatus.classList.add('error');
@@ -225,8 +225,8 @@
           <p class="profile-username">${escapeHtml(state.user.username || '')}</p>
           <p class="profile-tag">${escapeHtml(state.user.tag || '')}</p>
         </div>
-        <p class="profile-level">Nível ${state.user.level} · ${state.user.experience} XP</p>
-        <button type="button" class="profile-action" data-profile-stats>Minhas estatísticas</button>
+        <p class="profile-level">NÃ­vel ${state.user.level} Â· ${state.user.experience} XP</p>
+        <button type="button" class="profile-action" data-profile-stats>Minhas estatÃ­sticas</button>
         <button type="button" class="profile-action danger" data-profile-logout>Sair</button>
       </div>
     `;
@@ -256,7 +256,12 @@
     const email = form.email.value.trim();
     const password = form.password.value.trim();
     const errorEl = form.querySelector('.auth-error');
+    const statusEl = form.querySelector('.auth-status');
     if (errorEl) errorEl.textContent = '';
+    if (statusEl) {
+      statusEl.textContent = '';
+      statusEl.classList.remove('error', 'success', 'info');
+    }
     try {
       const { data, error } = await supabaseClient.getClient().auth.signInWithPassword({
         email,
@@ -279,9 +284,13 @@
     const email = form.email.value.trim();
     const password = form.password.value.trim();
     const username = form.username.value.trim();
-    const tag = form.tag.value.trim();
     const errorEl = form.querySelector('.auth-error');
+    const statusEl = form.querySelector('.auth-status');
     if (errorEl) errorEl.textContent = '';
+    if (statusEl) {
+      statusEl.textContent = '';
+      statusEl.classList.remove('error', 'success', 'info');
+    }
     try {
       const { data, error } = await supabaseClient.getClient().auth.signUp({
         email,
@@ -290,7 +299,20 @@
       if (error) throw error;
       const user = data.user;
       if (!user) throw new Error('Cadastro realizado, finalize a confirmação pelo e-mail.');
-      await profiles.ensureProfile(user, { username, tag });
+      const hasSession = Boolean(data.session?.access_token);
+      if (!hasSession) {
+        if (statusEl) {
+          statusEl.textContent = 'Enviamos um link de confirmação para o seu e-mail. Confirme para entrar.';
+          statusEl.classList.remove('error');
+          statusEl.classList.add('info');
+        }
+        return;
+      }
+      if (statusEl) {
+        statusEl.textContent = '';
+        statusEl.classList.remove('info');
+      }
+      await profiles.ensureProfile(user, { username });
       await statsApi.ensureInitialStats(user.id);
       await hydrateUser(user);
       closeModal(refs.registerModal);
@@ -298,9 +320,35 @@
     } catch (err) {
       const message = utils.normalizeError(err, 'Não foi possível criar sua conta.');
       if (errorEl) errorEl.textContent = message;
+      if (statusEl) {
+        statusEl.textContent = '';
+        statusEl.classList.remove('info', 'success');
+      }
     }
   }
 
+  async function handleGoogleLogin(event) {
+    event?.preventDefault();
+    const button = event?.currentTarget;
+    if (button) button.disabled = true;
+    try {
+      const redirectTo = `${window.location.origin}/`;
+      await supabaseClient.getClient().auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+        },
+      });
+    } catch (err) {
+      console.error('Google login failed', err);
+      const form = button?.closest('form');
+      const errorEl = form?.querySelector('.auth-error');
+      if (errorEl) {
+        errorEl.textContent = utils.normalizeError(err, 'Não foi possível abrir o Google.');
+      }
+      if (button) button.disabled = false;
+    }
+  }
   async function logout() {
     try {
       await supabaseClient.getClient().auth.signOut();
@@ -363,7 +411,22 @@
               <input type="password" name="password" required autocomplete="current-password" />
             </label>
             <p class="auth-error" id="loginError"></p>
-            <button type="submit" class="auth-submit">Entrar</button>
+            <p class="auth-status" id="loginStatus"></p>
+            <div class="auth-actions">
+              <button type="submit" class="auth-primary-btn">Entrar</button>
+              <div class="auth-divider"><span>ou</span></div>
+              <button type="button" class="auth-social-btn google" data-auth-google>
+                <span class="auth-google-icon" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M17 9.2c0-.6-.1-1.2-.2-1.7H9v3.3h4.5c-.2 1-1 1.9-2.1 2.5v2h3.4c2-1.8 3.2-4.4 3.2-7.1z" fill="#4285F4"/>
+                    <path d="M9 18c2.7 0 5-1 6.6-2.7l-3.4-2c-.9.6-2.1 1-3.2 1-2.5 0-4.6-1.7-5.4-4H0v2.1C1.6 15.8 4.1 18 9 18z" fill="#34A853"/>
+                    <path d="M3.6 10.3c-.2-.6-.3-1.3-.3-2s.1-1.4.3-2V4.2H0C-.6 5.4-.9 6.7-.9 8s.3 2.6.9 3.8l3.6-1.5z" fill="#FBBC05"/>
+                    <path d="M9 3.6c1.4 0 2.6.5 3.6 1.4l2.7-2.7C13.9.8 11.7 0 9 0 4.1 0 1.6 2.2 0 4.2l3.6 3.1C4.4 5.4 6.5 3.6 9 3.6z" fill="#EA4335"/>
+                  </svg>
+                </span>
+                <span>Entrar com Google</span>
+              </button>
+            </div>
           </form>
         </div>
       </div>
@@ -373,7 +436,7 @@
           <h2 id="registerTitle">Criar conta</h2>
           <form id="registerForm" class="auth-form">
             <label>
-              <span>Usuário</span>
+              <span>UsuÃ¡rio</span>
               <input type="text" name="username" maxlength="12" required autocomplete="username" />
             </label>
             <label>
@@ -384,12 +447,23 @@
               <span>Senha</span>
               <input type="password" name="password" minlength="6" required autocomplete="new-password" />
             </label>
-            <label>
-              <span>Tag (opcional)</span>
-              <input type="text" name="tag" maxlength="32" autocomplete="off" />
-            </label>
             <p class="auth-error" id="registerError"></p>
-            <button type="submit" class="auth-submit primary">Criar conta</button>
+            <p class="auth-status" id="registerStatus"></p>
+            <div class="auth-actions">
+              <button type="submit" class="auth-primary-btn">Criar conta</button>
+              <div class="auth-divider"><span>ou</span></div>
+              <button type="button" class="auth-social-btn google" data-auth-google>
+                <span class="auth-google-icon" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M17 9.2c0-.6-.1-1.2-.2-1.7H9v3.3h4.5c-.2 1-1 1.9-2.1 2.5v2h3.4c2-1.8 3.2-4.4 3.2-7.1z" fill="#4285F4"/>
+                    <path d="M9 18c2.7 0 5-1 6.6-2.7l-3.4-2c-.9.6-2.1 1-3.2 1-2.5 0-4.6-1.7-5.4-4H0v2.1C1.6 15.8 4.1 18 9 18z" fill="#34A853"/>
+                    <path d="M3.6 10.3c-.2-.6-.3-1.3-.3-2s.1-1.4.3-2V4.2H0C-.6 5.4-.9 6.7-.9 8s.3 2.6.9 3.8l3.6-1.5z" fill="#FBBC05"/>
+                    <path d="M9 3.6c1.4 0 2.6.5 3.6 1.4l2.7-2.7C13.9.8 11.7 0 9 0 4.1 0 1.6 2.2 0 4.2l3.6 3.1C4.4 5.4 6.5 3.6 9 3.6z" fill="#EA4335"/>
+                  </svg>
+                </span>
+                <span>Entrar com Google</span>
+              </button>
+            </div>
           </form>
         </div>
       </div>
@@ -399,7 +473,7 @@
           <div class="stats-header">
             <div>
               <p class="stats-eyebrow">Painel geral</p>
-              <h2 id="statsTitle">Suas estatísticas</h2>
+              <h2 id="statsTitle">Suas estatÃ­sticas</h2>
             </div>
             <p class="stats-status" id="statsStatus"></p>
           </div>
@@ -409,7 +483,7 @@
                 <tr>
                   <th>Modo</th>
                   <th>Jogos</th>
-                  <th>Vitórias</th>
+                  <th>VitÃ³rias</th>
                   <th>Derrotas</th>
                 </tr>
               </thead>
@@ -453,6 +527,9 @@
     if (refs.registerForm) {
       refs.registerForm.addEventListener('submit', handleRegister);
     }
+    document.querySelectorAll('[data-auth-google]').forEach((btn) => {
+      btn.addEventListener('click', handleGoogleLogin);
+    });
   }
 
   function bindOutsideClick() {
@@ -472,7 +549,7 @@
         hydrateUser(null);
       }
     } catch (err) {
-      console.warn('Falha ao restaurar sessão', err);
+      console.warn('Falha ao restaurar sessÃ£o', err);
       hydrateUser(null);
     }
   }
@@ -537,3 +614,6 @@
     logout,
   };
 })(window);
+
+
+
