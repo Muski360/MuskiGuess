@@ -196,9 +196,18 @@
 
   function closeModal() {
     if (!refs.modal) return;
+    const activeEl = document.activeElement;
+    if (activeEl && refs.modal.contains(activeEl)) {
+      activeEl.blur();
+    }
     refs.modal.classList.add('hidden');
     refs.modal.setAttribute('aria-hidden', 'true');
     unlockScroll();
+    if (refs.trigger) {
+      requestAnimationFrame(() => {
+        refs.trigger.focus();
+      });
+    }
   }
 
   function handleTabClick(event) {

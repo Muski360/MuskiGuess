@@ -51,16 +51,42 @@
     return client;
   }
 
+  function isSessionMissingError(error) {
+    if (!error) return false;
+    const message = String(error.message || error.error_description || '').toLowerCase();
+    return (
+      error.name === 'AuthSessionMissingError' ||
+      message.includes('session missing') ||
+      message.includes('auth session missing')
+    );
+  }
+
   async function getSession() {
-    const { data, error } = await getClient().auth.getSession();
-    if (error) throw error;
-    return data?.session || null;
+    try {
+      const { data, error } = await getClient().auth.getSession();
+      if (error) {
+        if (isSessionMissingError(error)) return null;
+        throw error;
+      }
+      return data?.session || null;
+    } catch (error) {
+      if (isSessionMissingError(error)) return null;
+      throw error;
+    }
   }
 
   async function getUser() {
-    const { data, error } = await getClient().auth.getUser();
-    if (error) throw error;
-    return data?.user || null;
+    try {
+      const { data, error } = await getClient().auth.getUser();
+      if (error) {
+        if (isSessionMissingError(error)) return null;
+        throw error;
+      }
+      return data?.user || null;
+    } catch (error) {
+      if (isSessionMissingError(error)) return null;
+      throw error;
+    }
   }
 
   function onAuthStateChange(callback) {

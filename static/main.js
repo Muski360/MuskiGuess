@@ -1,4 +1,4 @@
-﻿// Teste básico para verificar se o JavaScript está funcionando
+// Teste básico para verificar se o JavaScript está funcionando
 
 
 console.log('JavaScript carregado!');
@@ -17,6 +17,9 @@ let maxAttempts = 6;
 
 
 let wordCount = 1; // 1 = single, >=2 = duet/multi
+
+
+let solutionWords = [];
 
 
 let gameMode = 'single'; // 'single' | 'duet' | 'quaplet'
@@ -68,6 +71,28 @@ const KEY_STATUS_PRECEDENCE = { gray: 1, yellow: 2, green: 3 };
 
 
 const DEFAULT_STATUS_COLORS = { gray: '#4b5563', yellow: '#eab308', green: '#22c55e' };
+
+const MODE_CONFIG = {
+  single: { wordCount: 1, maxAttempts: 6 },
+  duet: { wordCount: 2, maxAttempts: 7 },
+  quaplet: { wordCount: 4, maxAttempts: 9 },
+};
+
+const wordService = window.wordService;
+if (!wordService) {
+  throw new Error('wordService.js precisa ser carregado antes de main.js');
+}
+
+function getModeConfig(mode = gameMode) {
+  return MODE_CONFIG[mode] || MODE_CONFIG.single;
+}
+
+function generateGameId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `muski-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+}
 
 
 
@@ -1076,6 +1101,18 @@ function renderBoard() {
         cell.className = 'cell';
 
 
+        cell.dataset.block = String(r);
+
+
+        cell.dataset.row = String(r);
+
+
+        cell.dataset.col = String(c);
+
+
+        cell.dataset.wordIndex = '0';
+
+
         const input = document.createElement('input');
 
 
@@ -1137,6 +1174,18 @@ function renderBoard() {
 
 
           cell.className = 'cell';
+
+
+          cell.dataset.wordIndex = String(wi);
+
+
+          cell.dataset.block = String(r);
+
+
+          cell.dataset.row = String(r);
+
+
+          cell.dataset.col = String(c);
 
 
           const input = document.createElement('input');
@@ -1484,6 +1533,9 @@ function persistState(extra = {}) {
 
 
     timestamp: Date.now(),
+
+
+    solutions: Array.isArray(solutionWords) ? [...solutionWords] : [],
 
 
     ...extra,
@@ -1870,16 +1922,41 @@ function attemptResumeFromStorage({ mode = gameMode, lang = currentLang } = {}) 
   }
 
 
+  const savedSolutions = Array.isArray(saved.solutions)
+    ? saved.solutions
+        .map(word => wordService.normalizeWord(word))
+        .filter(word => word.length === 5)
+    : [];
+
+
+  if (savedSolutions.length === 0) {
+
+
+    clearPersistedGame(mode, lang);
+
+
+    return false;
+
+
+  }
+
+
+  solutionWords = savedSolutions.slice();
+
+
   gameId = saved.gameId;
 
 
   gameMode = saved.mode || mode;
 
 
-  maxAttempts = Number.isFinite(saved.maxAttempts) ? saved.maxAttempts : maxAttempts;
+  const resumeConfig = getModeConfig(gameMode);
 
 
-  wordCount = Number.isFinite(saved.wordCount) ? saved.wordCount : wordCount;
+  maxAttempts = Number.isFinite(saved.maxAttempts) ? saved.maxAttempts : resumeConfig.maxAttempts;
+
+
+  wordCount = solutionWords.length;
 
 
   guessHistory = Array.isArray(saved.guessHistory) ? saved.guessHistory : [];
@@ -2097,76 +2174,37 @@ async function newGame(options = {}) {
   try {
 
 
-    const payload = { lang: currentLang };
+    const config = getModeConfig(gameMode);
 
 
-    if (gameMode === 'duet') {
+    solutionWords = [];
 
 
-      payload.mode = 'duet';
+    const words = await wordService.getRandomWords(currentLang, config.wordCount);
 
 
-      payload.wordCount = 2;
+    if (!Array.isArray(words) || words.length === 0) {
 
 
-      payload.maxAttempts = 7;
-
-
-    } else if (gameMode === 'quaplet') {
-
-
-      payload.mode = 'quaplet';
-
-
-      payload.wordCount = 4;
-
-
-      payload.maxAttempts = 9;
-
-
-    } else {
-
-
-      payload.mode = 'single';
-
-
-      payload.wordCount = 1;
-
-
-      payload.maxAttempts = 6;
+      throw new Error('Lista de palavras vazia');
 
 
     }
 
 
-    const res = await fetch('/api/new-game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    gameId = generateGameId();
 
 
-    if (!res.ok) { 
-
-      setStatus(fromEntities('Erro ao criar novo jogo - servidor n&atilde;o respondeu')); 
-
-      awaitingNewGame = false;
-
-      syncControlsState();
-
-      return; 
-
-    }
-
-    const data = await res.json();
-
-
-    gameId = data.gameId;
+    solutionWords = words.slice(0, config.wordCount);
 
 
     attempts = 0;
 
 
-    maxAttempts = data.maxAttempts;
+    maxAttempts = config.maxAttempts;
 
 
-    wordCount = data.wordCount || 1;
+    wordCount = solutionWords.length;
 
 
     currentCol = 0;
@@ -2174,26 +2212,26 @@ async function newGame(options = {}) {
 
     hackrActivated = false;
 
+
     gameFinished = false;
 
+
     syncControlsState();
+
 
     lastGameResult = null;
 
 
     statsSynced = false;
 
+
     guessHistory = [];
+
 
     currentStatusText = '';
 
+
     awaitingNewGame = false;
-
-
-
-    // Reset solvedWords for duet mode. Each index corresponds to a word in
-
-    // duplet/multi mode. Initially, não words are solved.
 
 
     solvedWords = new Array(wordCount).fill(false);
@@ -2202,21 +2240,42 @@ async function newGame(options = {}) {
     solvedWordSnapshots = new Array(wordCount).fill(null);
 
 
-    
+    console.log('New local game created:', {
 
 
-    console.log('New game created:', data);
+      id: gameId,
+
+
+      mode: gameMode,
+
+
+      lang: currentLang,
+
+
+      attempts: maxAttempts,
+
+
+    });
 
 
   } catch (error) {
 
-    console.error('Error creating new game:', error);
+    console.error('Erro ao criar novo jogo local:', error);
 
-    setStatus(fromEntities('Erro de conex&atilde;o com servidor'));
+    setStatus(fromEntities('N&atilde;o foi poss&iacute;vel carregar novas palavras.'));
 
     awaitingNewGame = false;
 
     syncControlsState();
+
+    if (appRoot) {
+
+
+      appRoot.style.opacity = '1';
+
+
+    }
+
 
     return;
 
@@ -2932,122 +2991,35 @@ function focusCell(r, c) {
 
 // Função para adicionar event listeners de clique nas células
 
+// Função para adicionar event listeners de clique nas células
 
 function addCellClickListeners() {
 
+  if (!board) return;
 
-  const cells = document.querySelectorAll('.cell');
+  const cells = board.querySelectorAll('.cell');
 
+  cells.forEach((cell) => {
 
-  cells.forEach((cell, index) => {
+    const row = Number.parseInt(cell.dataset.block || cell.dataset.row || '0', 10) || 0;
 
+    const col = Number.parseInt(cell.dataset.col || '0', 10) || 0;
 
-    // Calculate row/col for single or duet
-
-
-    let row, col;
-
-
-    if (wordCount === 1) {
-
-
-      row = Math.floor(index / 5);
-
-
-      col = index % 5;
-
-
-    } else {
-
-
-      // In duet, inputs are laid out in blocks; simplest is to derive from DOM
-
-
-      const parentRow = cell.closest('.row');
-
-
-      const parentBlock = cell.closest('.row-block');
-
-
-      if (!parentRow || !parentBlock) {
-
-
-        console.warn('Could not find parent row or block for cell');
-
-
-        return;
-
-
-      }
-
-
-      row = Array.from(board.children).indexOf(parentBlock);
-
-
-      col = Array.from(parentRow.children).indexOf(cell);
-
-
-    }
-
-
-    
-
+    const wordIndex = Number.parseInt(cell.dataset.wordIndex || '0', 10) || 0;
 
     cell.addEventListener('click', () => {
 
+      if (row !== attempts) return;
 
-      // Só permitir clique na linha ativa
+      if (wordCount > 1 && solvedWords[wordIndex]) return;
 
-
-      if (row === attempts) {
-
-
-        // In duet/multi mode, prevent focusing on a solved word's row
-
-
-        if (wordCount > 1) {
-
-
-          const parentRowEl = cell.closest('.row');
-
-
-          if (parentRowEl && parentRowEl.dataset && parentRowEl.dataset.wordIndex) {
-
-
-            const wi = parseInt(parentRowEl.dataset.wordIndex, 10) || 0;
-
-
-            if (solvedWords[wi]) {
-
-
-              return; // ignore clicks on solved side
-
-
-            }
-
-
-          }
-
-
-        }
-
-
-        focusCell(row, col);
-
-
-      }
-
+      focusCell(row, col);
 
     });
 
-
   });
 
-
 }
-
-
-
 
 
 function readGuessFromRow(r) {
@@ -3077,37 +3049,19 @@ async function checkWordExists(word) {
   try {
 
 
-    const response = await fetch(`/api/check-word?word=${encodeURIComponent(word)}&lang=${currentLang}`);
+    const exists = await wordService.isValidWord(word, currentLang);
 
 
-    if (response.ok) {
-
-
-      const data = await response.json();
-
-
-      return data.exists;
-
-
-    } else {
-
-
-      console.warn('Erro ao verificar palavra:', response.status);
-
-
-      return true; // Em caso de erro, assumir que a palavra  válida
-
-
-    }
+    return exists;
 
 
   } catch (error) {
 
 
-    console.warn('Erro de rede ao verificar palavra:', error);
+    console.warn('Erro ao verificar palavra localmente:', error);
 
 
-    return true; // Em caso de erro de rede, assumir que a palavra  válida
+    return true;
 
 
   }
@@ -3367,95 +3321,125 @@ async function sendGuess(guess) {
 
   const upperGuess = (guess || '').toUpperCase();
 
-  const requestGameId = gameId;
+  if (!gameId) {
 
-  cancelPendingGuessRequest();
 
-  const controller = new AbortController();
+    setStatus('Clique em Novo jogo para jogar.');
 
-  activeGuessAbortController = controller;
 
-  let res;
+    return;
+
+
+  }
+
+
+  if (!Array.isArray(solutionWords) || solutionWords.length === 0) {
+
+
+    setStatus(fromEntities('As palavras n&atilde;o foram carregadas. Clique em Novo jogo.'));
+
+
+    return;
+
+
+  }
+
 
   let data;
 
+
   try {
 
-    res = await fetch('/api/guess', {
 
-      method: 'POST',
+    const rawFeedback = wordService.evaluateGuess(guess, solutionWords);
 
-      headers: { 'Content-Type': 'application/json' },
 
-      body: JSON.stringify({ gameId: requestGameId, guess }),
+    const normalizedFeedback = wordCount === 1 ? rawFeedback[0] : rawFeedback;
 
-      signal: controller.signal,
 
-    });
+    const feedbackPerWord = wordCount === 1 ? [normalizedFeedback] : normalizedFeedback;
 
-    data = await res.json();
+
+    const attemptNumber = attemptIndex + 1;
+
+
+    const won = feedbackPerWord.length > 0 && feedbackPerWord.every(fb =>
+
+
+      Array.isArray(fb) &&
+
+
+      fb.length === 5 &&
+
+
+      fb.every(cell => cell.status === 'green')
+
+
+    );
+
+
+    const fallbackConfig = getModeConfig(gameMode);
+
+
+    const safeMaxAttempts = Number.isFinite(maxAttempts) && maxAttempts > 0
+
+
+      ? maxAttempts
+
+
+      : fallbackConfig.maxAttempts;
+
+
+    if (safeMaxAttempts !== maxAttempts) {
+
+
+      maxAttempts = safeMaxAttempts;
+
+
+    }
+
+
+    const reachedLimit = safeMaxAttempts > 0 && attemptNumber >= safeMaxAttempts;
+
+
+    data = {
+
+
+      feedback: normalizedFeedback,
+
+
+      attempts: attemptNumber,
+
+
+      maxAttempts: safeMaxAttempts,
+
+
+      won,
+
+
+      reachedLimit,
+
+
+      gameOver: won || reachedLimit,
+
+
+    };
+
 
   } catch (error) {
 
-    if (controller.signal.aborted) {
 
-      return;
+    console.error('Erro ao avaliar palpite localmente:', error);
 
-    }
 
-    console.error('Erro ao enviar palpite:', error);
+    setStatus(fromEntities('N&atilde;o foi poss&iacute;vel avaliar o palpite.'));
 
-    setStatus('Erro de rede ao enviar palpite');
 
     shakeScreen();
 
-    return;
-
-  } finally {
-
-    if (activeGuessAbortController === controller) {
-
-      activeGuessAbortController = null;
-
-    }
-
-  }
-
-
-
-  if (requestGameId !== gameId) {
-
-    console.warn('Resposta ignorada: jogo atual mudou.', { requestGameId, currentGameId: gameId });
 
     return;
 
-  }
-
-  if (data?.gameId && data.gameId !== requestGameId) {
-
-    console.warn('Resposta ignorada: gameId divergente.', { responseGameId: data.gameId, expected: requestGameId });
-
-    return;
-
-  }
-
-
-
-  if (!res.ok) { 
-
-    if (res.status === 404 && (data?.error || '').toLowerCase().includes('jogo')) {
-
-      await handleMissingGameSession(fromEntities('Sess&atilde;o n&atilde;o encontrada. Criando um novo jogo...'));
-
-    } else {
-
-      setStatus(data.error || 'Erro ao enviar palpite'); 
-
-      shakeScreen(); // Tremor para erro do servidor
-
-    }
-
-    return; 
 
   }
 
@@ -3577,7 +3561,7 @@ async function sendGuess(guess) {
 
   attempts = data.attempts;
 
-  gameFinished = !!(data.won || data.gameOver);
+  gameFinished = !!(data.won || data.reachedLimit);
 
   syncControlsState();
 
@@ -3607,9 +3591,48 @@ async function sendGuess(guess) {
 
     showToast(winMessage);
 
-  } else if (data.gameOver) {
+  } else if (data.reachedLimit) {
 
     setStatus('Fim de jogo!');
+
+    if (gameOverTextEl) {
+
+
+      const answers = Array.isArray(solutionWords)
+
+
+        ? solutionWords.map(word => (word || '').toUpperCase()).filter(Boolean)
+
+
+        : [];
+
+
+      if (answers.length > 0) {
+
+
+        const prefix = answers.length > 1
+
+
+          ? 'As palavras corretas eram:'
+
+
+          : 'A palavra correta era:';
+
+
+        gameOverTextEl.textContent = `${prefix} ${answers.join(' · ')}`;
+
+
+      } else {
+
+
+        gameOverTextEl.textContent = 'Suas tentativas acabaram. Tente novamente!';
+
+
+      }
+
+
+    }
+
 
     showOverlay();
 
@@ -6670,7 +6693,6 @@ function activateHackrMode() {
 
 
 }
-
 
 
 

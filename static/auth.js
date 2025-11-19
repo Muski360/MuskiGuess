@@ -84,8 +84,17 @@
 
   function closeModal(modal) {
     if (!modal) return;
-    modal.classList.add('hidden');
-    modal.setAttribute('aria-hidden', 'true');
+    const activeEl = document.activeElement;
+    const finalize = () => {
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+    };
+    if (activeEl && modal.contains(activeEl)) {
+      activeEl.blur();
+      requestAnimationFrame(finalize);
+    } else {
+      finalize();
+    }
   }
 
   function closeAllModals() {
