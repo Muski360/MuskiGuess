@@ -6,11 +6,11 @@
     <meta name="supabase-url" content="">
     <meta name="supabase-anon-key" content="">
     <title>MuskiGuess Multiplayer</title>
-    <link rel="icon" type="image/png" sizes="1024x1024" href="/static/images/LogoIcon.png">
+    <link rel="icon" type="image/png" sizes="1024x1024" href="images/LogoIcon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;700&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/multiplayer.css" />
+    <link rel="stylesheet" href="multiplayer.css" />
 </head>
 <body>
     <div class="mp-app">
@@ -27,7 +27,7 @@
 
         <header class="mp-header">
             <div class="mp-brand">
-                <img src="/static/images/Logo_noBackground.png" alt="MuskiGuess" class="mp-logo">
+                <img src="images/Logo_noBackground.png" alt="MuskiGuess" class="mp-logo">
                 <div class="mp-title-group">
                     <h1>MuskiGuess</h1>
                     <span>Modo Multiplayer</span>
@@ -194,14 +194,14 @@
     </div>
 
     <script defer src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@1.0.35/dist/lenis.min.js"></script>
-    <script defer src="/static/smooth-scroll.js"></script>
+    <script defer src="smooth-scroll.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.48.0/dist/umd/supabase.min.js"></script>
-    <script src="/static/utils.js"></script>
-    <script src="/static/supabaseClient.js"></script>
-    <script src="/static/profiles.js"></script>
-    <script src="/static/stats.js"></script>
-    <script src="/static/ranking.js"></script>
-    <script src="/static/auth.js"></script>
+    <script src="utils.js"></script>
+    <script src="supabaseClient.js"></script>
+    <script src="profiles.js"></script>
+    <script src="stats.js"></script>
+    <script src="ranking.js"></script>
+    <script src="auth.js"></script>
     <script>
       (function() {
         function loadScript(src) {
@@ -222,7 +222,7 @@
             return loadScript('https://cdn.socket.io/4.7.5/socket.io.min.js');
           })
           .finally(function() {
-            loadScript('/static/multiplayer.js');
+            loadScript('multiplayer.js');
           });
       })();
     </script>
