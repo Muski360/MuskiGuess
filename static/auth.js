@@ -1,17 +1,11 @@
-;(function () {
-  const htmlDecoder = document.createElement('textarea');
-  const fromEntities = (str = '') => {
-    htmlDecoder.innerHTML = str;
-    return htmlDecoder.value;
-  };
-
-  const MODE_LABELS = {
-    classic: fromEntities('Cl&aacute;ssico'),
-    dupleto: 'Dupleto',
-    quapleto: 'Quapleto',
-    multiplayer: 'Multiplayer',
-    total: 'Total',
-  };
+;(function (window) {
+  const utils = window.muskiUtils;
+  const supabaseClient = window.supabaseClient;
+  const profiles = window.profiles;
+  const statsApi = window.statsApi;
+  if (!utils || !supabaseClient || !profiles || !statsApi) {
+    throw new Error('Carregue utils, supabaseClient, profiles e stats antes de auth.js');
+  }
 
   const state = {
     user: null,
@@ -33,39 +27,13 @@
     profileMenu: null,
   };
 
-  let activeProfileMenu = null;
-
-  function getUserInitial(user) {
-    const source = (user?.username || user?.email || '').trim();
-    return source ?source.charAt(0).toUpperCase() : '?';
-  }
-
-  function setProfileMenuOpen(menu, isOpen) {
-    if (!menu) return;
-    const trigger = menu.querySelector('[data-profile-trigger]');
-    if (isOpen) {
-      if (activeProfileMenu && activeProfileMenu !== menu) {
-        setProfileMenuOpen(activeProfileMenu, false);
-      }
-      menu.classList.add('open');
-      if (trigger) trigger.setAttribute('aria-expanded', 'true');
-      activeProfileMenu = menu;
-    } else {
-      menu.classList.remove('open');
-      if (trigger) trigger.setAttribute('aria-expanded', 'false');
-      if (activeProfileMenu === menu) {
-        activeProfileMenu = null;
-      }
-    }
-  }
-
-  function handleProfileMenuOutsideClick(event) {
-    if (!activeProfileMenu) return;
-    if (activeProfileMenu.contains(event.target)) return;
-    setProfileMenuOpen(activeProfileMenu, false);
-  }
-
-  document.addEventListener('click', handleProfileMenuOutsideClick);
+  const MODE_LABELS = {
+    classic: utils.decodeHtml('Cl&aacute;ssico'),
+    dupleto: 'Dupleto',
+    quapleto: 'Quapleto',
+    multiplayer: 'Multiplayer',
+    total: 'Total',
+  };
 
   function escapeHtml(value) {
     return String(value || '')
@@ -74,6 +42,23 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  function getUserInitial(user) {
+    const source = (user?.username || user?.email || '').trim();
+    return source ? source.charAt(0).toUpperCase() : '?';
+  }
+
+  function mapAuthUser(user, profile) {
+    if (!user || !profile) return null;
+    return {
+      id: user.id,
+      email: user.email || '',
+      username: profile.username,
+      level: profile.level,
+      experience: profile.experience,
+      tag: profile.tag,
+    };
   }
 
   function notifyListeners() {
@@ -91,18 +76,255 @@
     });
   }
 
-  function setUser(user) {
-    state.user = user;
-    if (!user) {
-      if (activeProfileMenu) {
-        setProfileMenuOpen(activeProfileMenu, false);
-      }
-      refs.profileMenu = null;
+  function openModal(modal) {
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeModal(modal) {
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  function closeAllModals() {
+    [refs.loginModal, refs.registerModal, refs.statsModal].forEach(closeModal);
+  }
+
+  function renderStatsTable() {
+    if (!refs.statsBody) return;
+    refs.statsBody.innerHTML = '';
+    if (!state.stats.length) {
+      refs.statsBody.innerHTML = `
+        <tr>
+          <td colspan="4" class="empty">Nenhuma partida ainda.</td>
+        </tr>
+      `;
+      return;
+    }
+    state.stats.forEach((row) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${MODE_LABELS[row.mode] || row.mode}</td>
+        <td>${row.num_games}</td>
+        <td>${row.num_wins}</td>
+        <td>${row.num_losses}</td>
+      `;
+      refs.statsBody.appendChild(tr);
+    });
+  }
+
+  async function refreshStats(force = false) {
+    if (!state.user) {
       state.stats = [];
       state.statsLoaded = false;
+      renderStatsTable();
+      return [];
     }
+    if (state.statsLoading) return state.stats;
+    if (state.statsLoaded && !force) return state.stats;
+    state.statsLoading = true;
+    if (refs.statsStatus) {
+      refs.statsStatus.textContent = 'Carregando estatísticas...';
+      refs.statsStatus.classList.remove('error');
+    }
+    try {
+      await statsApi.ensureInitialStats(state.user.id);
+      const data = await statsApi.getStats(state.user.id);
+      state.stats = data;
+      state.statsLoaded = true;
+      renderStatsTable();
+      if (refs.statsStatus) refs.statsStatus.textContent = '';
+      utils.testLog('auth.refreshStats');
+    } catch (err) {
+      const message = utils.normalizeError(err, 'Erro ao carregar estatísticas.');
+      if (refs.statsStatus) {
+        refs.statsStatus.textContent = message;
+        refs.statsStatus.classList.add('error');
+      }
+      console.error(message, err);
+    } finally {
+      state.statsLoading = false;
+      notifyListeners();
+    }
+    return state.stats;
+  }
+
+  async function hydrateUser(user) {
+    if (!user) {
+      state.user = null;
+      state.stats = [];
+      state.statsLoaded = false;
+      renderControls();
+      renderStatsTable();
+      notifyListeners();
+      protectRestrictedElements();
+      return null;
+    }
+    const profile = await profiles.ensureProfile(user, {
+      username: profiles.deriveUsernameFromEmail(user.email),
+    });
+    await statsApi.ensureInitialStats(user.id);
+    const publicUser = mapAuthUser(user, profile);
+    state.user = publicUser;
     renderControls();
+    await refreshStats(true);
     notifyListeners();
+    protectRestrictedElements();
+    utils.testLog('auth.hydrateUser');
+    return publicUser;
+  }
+
+  function handleProfileMenu(isOpen) {
+    if (!refs.profileMenu) return;
+    const trigger = refs.profileMenu.querySelector('[data-profile-trigger]');
+    refs.profileMenu.classList.toggle('open', isOpen);
+    if (trigger) trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  }
+
+  function renderControls() {
+    if (!refs.controlsContainer) return;
+    refs.controlsContainer.innerHTML = '';
+    if (!state.user) {
+      const loginBtn = document.createElement('button');
+      loginBtn.type = 'button';
+      loginBtn.className = 'auth-cta-btn ghost';
+      loginBtn.textContent = 'Entrar';
+      loginBtn.addEventListener('click', () => openModal(refs.loginModal));
+
+      const registerBtn = document.createElement('button');
+      registerBtn.type = 'button';
+      registerBtn.className = 'auth-cta-btn primary';
+      registerBtn.textContent = 'Criar conta';
+      registerBtn.addEventListener('click', () => openModal(refs.registerModal));
+
+      refs.controlsContainer.appendChild(loginBtn);
+      refs.controlsContainer.appendChild(registerBtn);
+      return;
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'profile-menu';
+    wrapper.innerHTML = `
+      <button class="profile-trigger" data-profile-trigger aria-expanded="false" aria-haspopup="true">
+        <span class="profile-initial">${escapeHtml(getUserInitial(state.user))}</span>
+        <span class="profile-name">${escapeHtml(state.user.username || 'Jogador')}</span>
+      </button>
+      <div class="profile-dropdown">
+        <div class="profile-row">
+          <p class="profile-username">${escapeHtml(state.user.username || '')}</p>
+          <p class="profile-tag">${escapeHtml(state.user.tag || '')}</p>
+        </div>
+        <p class="profile-level">Nível ${state.user.level} · ${state.user.experience} XP</p>
+        <button type="button" class="profile-action" data-profile-stats>Minhas estatísticas</button>
+        <button type="button" class="profile-action danger" data-profile-logout>Sair</button>
+      </div>
+    `;
+    refs.controlsContainer.appendChild(wrapper);
+    refs.profileMenu = wrapper;
+
+    const trigger = wrapper.querySelector('[data-profile-trigger]');
+    trigger?.addEventListener('click', (event) => {
+      event.preventDefault();
+      const isOpen = wrapper.classList.contains('open');
+      handleProfileMenu(!isOpen);
+    });
+
+    wrapper.querySelector('[data-profile-stats]')?.addEventListener('click', () => {
+      openStatsModal();
+    });
+
+    wrapper.querySelector('[data-profile-logout]')?.addEventListener('click', () => {
+      logout();
+    });
+  }
+
+  async function handleLogin(event) {
+    event?.preventDefault();
+    const form = refs.loginForm;
+    if (!form) return;
+    const email = form.email.value.trim();
+    const password = form.password.value.trim();
+    const errorEl = form.querySelector('.auth-error');
+    if (errorEl) errorEl.textContent = '';
+    try {
+      const { data, error } = await supabaseClient.getClient().auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+      await hydrateUser(data.user);
+      closeModal(refs.loginModal);
+      utils.testLog('auth.login');
+    } catch (err) {
+      const message = utils.normalizeError(err, 'Não foi possível entrar.');
+      if (errorEl) errorEl.textContent = message;
+    }
+  }
+
+  async function handleRegister(event) {
+    event?.preventDefault();
+    const form = refs.registerForm;
+    if (!form) return;
+    const email = form.email.value.trim();
+    const password = form.password.value.trim();
+    const username = form.username.value.trim();
+    const tag = form.tag.value.trim();
+    const errorEl = form.querySelector('.auth-error');
+    if (errorEl) errorEl.textContent = '';
+    try {
+      const { data, error } = await supabaseClient.getClient().auth.signUp({
+        email,
+        password,
+      });
+      if (error) throw error;
+      const user = data.user;
+      if (!user) throw new Error('Cadastro realizado, finalize a confirmação pelo e-mail.');
+      await profiles.ensureProfile(user, { username, tag });
+      await statsApi.ensureInitialStats(user.id);
+      await hydrateUser(user);
+      closeModal(refs.registerModal);
+      utils.testLog('auth.register');
+    } catch (err) {
+      const message = utils.normalizeError(err, 'Não foi possível criar sua conta.');
+      if (errorEl) errorEl.textContent = message;
+    }
+  }
+
+  async function logout() {
+    try {
+      await supabaseClient.getClient().auth.signOut();
+    } catch (err) {
+      console.warn('Erro ao sair', err);
+    } finally {
+      state.user = null;
+      state.stats = [];
+      state.statsLoaded = false;
+      renderControls();
+      closeAllModals();
+      notifyListeners();
+      utils.testLog('auth.logout');
+    }
+  }
+
+  function renderStatsModalSkeleton() {
+    if (!refs.statsModal) return;
+    if (refs.statsStatus) {
+      refs.statsStatus.textContent = '';
+      refs.statsStatus.classList.remove('error');
+    }
+    renderStatsTable();
+  }
+
+  async function openStatsModal() {
+    if (!state.user) {
+      openModal(refs.loginModal);
+      return;
+    }
+    renderStatsModalSkeleton();
+    openModal(refs.statsModal);
+    await refreshStats(true);
   }
 
   function ensureModals() {
@@ -129,22 +351,21 @@
             </label>
             <label>
               <span>Senha</span>
-              <input type="password" name="password" required minlength="8" autocomplete="current-password" />
+              <input type="password" name="password" required autocomplete="current-password" />
             </label>
             <p class="auth-error" id="loginError"></p>
-            <button type="submit" class="auth-primary-btn">Entrar</button>
+            <button type="submit" class="auth-submit">Entrar</button>
           </form>
         </div>
       </div>
-
       <div class="auth-modal hidden" id="registerModal" role="dialog" aria-modal="true" aria-labelledby="registerTitle">
         <div class="auth-modal-card">
           <button type="button" class="auth-modal-close" data-auth-close>&times;</button>
           <h2 id="registerTitle">Criar conta</h2>
           <form id="registerForm" class="auth-form">
             <label>
-              <span>Usu&aacute;rio</span>
-              <input type="text" name="username" required minlength="1" maxlength="12" pattern="[A-Za-z0-9]{1,12}" autocomplete="nickname" />
+              <span>Usuário</span>
+              <input type="text" name="username" maxlength="12" required autocomplete="username" />
             </label>
             <label>
               <span>E-mail</span>
@@ -152,421 +373,125 @@
             </label>
             <label>
               <span>Senha</span>
-              <input type="password" name="password" required minlength="8" autocomplete="new-password" />
+              <input type="password" name="password" minlength="6" required autocomplete="new-password" />
             </label>
             <label>
-              <span>Confirmar senha</span>
-              <input type="password" name="confirmPassword" required minlength="8" autocomplete="new-password" />
+              <span>Tag (opcional)</span>
+              <input type="text" name="tag" maxlength="32" autocomplete="off" />
             </label>
             <p class="auth-error" id="registerError"></p>
-            <button type="submit" class="auth-primary-btn">Cadastrar</button>
+            <button type="submit" class="auth-submit primary">Criar conta</button>
           </form>
         </div>
       </div>
-
       <div class="auth-modal hidden" id="statsModal" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
-        <div class="auth-modal-card auth-modal-wide">
+        <div class="auth-modal-card">
           <button type="button" class="auth-modal-close" data-auth-close>&times;</button>
-          <h2 id="statsTitle">Suas estat&iacute;sticas</h2>
-          <div class="auth-status" id="statsStatus"></div>
-          <div class="stats-table-wrapper">
-            <table class="stats-table">
+          <div class="stats-header">
+            <div>
+              <p class="stats-eyebrow">Painel geral</p>
+              <h2 id="statsTitle">Suas estatísticas</h2>
+            </div>
+            <p class="stats-status" id="statsStatus"></p>
+          </div>
+          <div class="stats-table">
+            <table>
               <thead>
                 <tr>
                   <th>Modo</th>
                   <th>Jogos</th>
-                  <th>Vit&oacute;rias</th>
+                  <th>Vitórias</th>
                   <th>Derrotas</th>
-                  <th>Multiplayer Jogos</th>
-                  <th>Multiplayer Vit&oacute;rias</th>
-                  <th>Multiplayer Derrotas</th>
                 </tr>
               </thead>
               <tbody id="statsTableBody"></tbody>
             </table>
           </div>
-          <button type="button" class="auth-secondary-btn" data-auth-close>Fechar</button>
         </div>
       </div>
     `;
     document.body.appendChild(wrapper);
-    ensureModals();
+    refs.loginModal = document.getElementById('loginModal');
+    refs.registerModal = document.getElementById('registerModal');
+    refs.statsModal = document.getElementById('statsModal');
+    refs.loginForm = document.getElementById('loginForm');
+    refs.registerForm = document.getElementById('registerForm');
+    refs.statsBody = document.getElementById('statsTableBody');
+    refs.statsStatus = document.getElementById('statsStatus');
+  }
 
+  function bindModalEvents() {
     [refs.loginModal, refs.registerModal, refs.statsModal].forEach((modal) => {
       if (!modal) return;
       modal.addEventListener('click', (event) => {
-        const isBackdrop = event.target === modal;
-        const isCloseBtn = event.target?.dataset?.authClose !== undefined;
-        const isAuthModal = modal.id === 'loginModal' || modal.id === 'registerModal';
-        // For login/register, only the explicit close button should close.
-        if (isAuthModal) {
-          if (isCloseBtn) closeModal(modal);
-          return;
-        }
-        // Stats modal keeps backdrop close behavior.
-        if (isBackdrop || isCloseBtn) {
+        if (event.target === modal) {
           closeModal(modal);
         }
       });
+      modal.querySelectorAll('[data-auth-close]').forEach((btn) =>
+        btn.addEventListener('click', () => closeModal(modal))
+      );
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeAllModals();
     });
   }
 
-  function openModal(modal) {
-    if (!modal) return;
-    modal.classList.remove('hidden');
-    const input = modal.querySelector('input');
-    if (input) {
-      setTimeout(() => input.focus(), 50);
-    }
-  }
-
-  function closeModal(modal) {
-    if (!modal) return;
-    modal.classList.add('hidden');
-    const errorEl = modal.querySelector('.auth-error');
-    if (errorEl) errorEl.textContent = '';
-    const form = modal.querySelector('form');
-    if (form) {
-      setLoading(form, false);
-    }
-  }
-
-  function setLoading(form, value) {
-    const submitBtn = form?.querySelector('button[type="submit"]');
-    if (!submitBtn) return;
-    submitBtn.disabled = !!value;
-    submitBtn.classList.toggle('loading', !!value);
-  }
-
-  async function fetchJSON(url, options) {
-    const response = await fetch(url, {
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      ...options,
-    });
-    const data = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, data };
-  }
-
-  async function handleLogin(event) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const errorEl = document.getElementById('loginError');
-    if (errorEl) errorEl.textContent = '';
-    const formData = new FormData(form);
-    const email = formData.get('email');
-    const password = formData.get('password');
-    setLoading(form, true);
-    try {
-      const { ok, data } = await fetchJSON('/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      });
-      if (!ok) {
-        const message = data?.error || fromEntities('N&atilde;o foi poss&iacute;vel entrar.');
-        if (errorEl) errorEl.textContent = message;
-        return;
-      }
-      closeModal(refs.loginModal);
-      setUser(data.user || null);
-      await refreshStats(true);
-    } catch (err) {
-      if (errorEl) errorEl.textContent = fromEntities('Erro de conex&atilde;o. Tente novamente.');
-    } finally {
-      setLoading(form, false);
-    }
-  }
-
-  async function handleRegister(event) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const errorEl = document.getElementById('registerError');
-    if (errorEl) errorEl.textContent = '';
-    const formData = new FormData(form);
-    const payload = {
-      username: formData.get('username'),
-      email: formData.get('email'),
-      password: formData.get('password'),
-    };
-    const confirmPassword = formData.get('confirmPassword');
-    if (String(payload.password || '') !== String(confirmPassword || '')) {
-      if (errorEl) errorEl.textContent = fromEntities('As senhas n&atilde;o conferem.');
-      return;
-    }
-    setLoading(form, true);
-    try {
-      const { ok, data, status } = await fetchJSON('/register', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-      if (!ok) {
-        let message = fromEntities('N&atilde;o foi poss&iacute;vel cadastrar.');
-        if (status === 409) {
-          message = data?.errors?.email || fromEntities('E-mail j&aacute; cadastrado.');
-        } else if (data?.errors) {
-          message = Object.values(data.errors)[0] || message;
-        } else if (data?.error) {
-          message = data.error;
-        }
-        if (errorEl) errorEl.textContent = message;
-        return;
-      }
-      closeModal(refs.registerModal);
-      setUser(data.user || null);
-      await refreshStats(true);
-    } catch (err) {
-      if (errorEl) errorEl.textContent = fromEntities('Erro de conex&atilde;o. Tente novamente.');
-    } finally {
-      setLoading(form, false);
-    }
-  }
-
-  async function handleLogout() {
-    try {
-      await fetchJSON('/logout', { method: 'POST', body: JSON.stringify({}) });
-    } catch (err) {
-      console.warn(fromEntities('Falha ao encerrar sess&atilde;o'), err);
-    }
-    setUser(null);
-  }
-
-  function renderControls() {
-    if (!refs.controlsContainer) {
-      refs.controlsContainer = document.getElementById('authControls');
-    }
-    const container = refs.controlsContainer;
-    if (!container) return;
-    container.innerHTML = '';
-    refs.profileMenu = null;
-    const fragment = document.createDocumentFragment();
-    if (!state.user) {
-      const group = document.createElement('div');
-      group.className = 'auth-cta-group';
-
-      const registerBtn = document.createElement('button');
-      registerBtn.type = 'button';
-      registerBtn.className = 'auth-cta-btn primary';
-      registerBtn.textContent = 'Criar conta';
-      registerBtn.addEventListener('click', () => openModal(refs.registerModal));
-
-      const loginBtn = document.createElement('button');
-      loginBtn.type = 'button';
-      loginBtn.className = 'auth-cta-btn ghost';
-      loginBtn.textContent = 'Entrar';
-      loginBtn.addEventListener('click', () => openModal(refs.loginModal));
-
-      group.appendChild(registerBtn);
-      group.appendChild(loginBtn);
-      fragment.appendChild(group);
-    } else {
-      const profileMenu = document.createElement('div');
-      profileMenu.className = 'profile-menu';
-
-      const trigger = document.createElement('button');
-      trigger.type = 'button';
-      trigger.className = 'profile-trigger';
-      trigger.dataset.profileTrigger = 'true';
-      trigger.setAttribute('aria-haspopup', 'true');
-      trigger.setAttribute('aria-expanded', 'false');
-      trigger.title = 'Abrir menu da conta';
-
-      const avatar = document.createElement('span');
-      avatar.className = 'profile-avatar';
-      avatar.textContent = getUserInitial(state.user);
-
-      const label = document.createElement('span');
-      label.className = 'profile-label';
-
-      const greeting = document.createElement('span');
-      greeting.className = 'profile-greeting';
-      greeting.textContent = 'Conta';
-
-      const name = document.createElement('span');
-      name.className = 'profile-name';
-      name.textContent = state.user.username || state.user.email || fromEntities('Usu&aacute;rio');
-
-      label.appendChild(greeting);
-      label.appendChild(name);
-
-      const caret = document.createElement('span');
-      caret.className = 'profile-caret';
-      caret.setAttribute('aria-hidden', 'true');
-
-      trigger.appendChild(avatar);
-      trigger.appendChild(label);
-      trigger.appendChild(caret);
-
-      const dropdown = document.createElement('div');
-      dropdown.className = 'profile-dropdown';
-      dropdown.setAttribute('role', 'menu');
-
-      const statsAction = document.createElement('button');
-      statsAction.type = 'button';
-      statsAction.className = 'profile-action';
-      statsAction.textContent = fromEntities('Estat&iacute;sticas');
-      statsAction.addEventListener('click', () => {
-        setProfileMenuOpen(profileMenu, false);
-        openStatsModal();
-      });
-
-      const logoutAction = document.createElement('button');
-      logoutAction.type = 'button';
-      logoutAction.className = 'profile-action';
-      logoutAction.textContent = 'Sair';
-      logoutAction.addEventListener('click', () => {
-        setProfileMenuOpen(profileMenu, false);
-        handleLogout();
-      });
-
-      dropdown.appendChild(statsAction);
-      dropdown.appendChild(logoutAction);
-
-      profileMenu.appendChild(trigger);
-      profileMenu.appendChild(dropdown);
-
-      trigger.addEventListener('click', (event) => {
-        event.preventDefault();
-        const nextState = !profileMenu.classList.contains('open');
-        setProfileMenuOpen(profileMenu, nextState);
-      });
-
-      refs.profileMenu = profileMenu;
-      fragment.appendChild(profileMenu);
-    }
-    container.appendChild(fragment);
-  }
-
-
-  function renderStatsTable() {
-    if (!refs.statsBody) return;
-    refs.statsBody.innerHTML = '';
-    if (!Array.isArray(state.stats) || state.stats.length === 0) {
-      const row = document.createElement('tr');
-      const cell = document.createElement('td');
-      cell.colSpan = 7;
-      cell.textContent = fromEntities('Nenhuma estat&iacute;stica dispon&iacute;vel.');
-      row.appendChild(cell);
-      refs.statsBody.appendChild(row);
-      return;
-    }
-    state.stats.forEach((entry) => {
-      const row = document.createElement('tr');
-      const losses = entry?.num_losses ?? Math.max((entry?.num_games || 0) - (entry?.num_wins || 0), 0);
-      const mpGames = entry?.num_multiplayer_games;
-      const mpWins = entry?.num_multiplayer_wins;
-      const mpLosses =
-        entry?.num_multiplayer_losses ??
-        Math.max((entry?.num_multiplayer_games || 0) - (entry?.num_multiplayer_wins || 0), 0);
-
-      const cells = [
-        { label: 'Modo', value: escapeHtml(MODE_LABELS[entry.mode] || entry.mode || '') },
-        { label: 'Jogos', value: entry?.num_games ?? 0 },
-        { label: fromEntities('Vit&oacute;rias'), value: entry?.num_wins ?? 0 },
-        { label: 'Derrotas', value: losses },
-        { label: 'Multiplayer Jogos', value: mpGames != null ? mpGames : fromEntities('&mdash;') },
-        { label: fromEntities('Multiplayer Vit&oacute;rias'), value: mpWins != null ? mpWins : fromEntities('&mdash;') },
-        { label: 'Multiplayer Derrotas', value: mpLosses != null ? mpLosses : fromEntities('&mdash;') },
-      ];
-
-      cells.forEach((cell) => {
-        const td = document.createElement('td');
-        td.dataset.label = cell.label;
-        td.textContent = cell.value;
-        row.appendChild(td);
-      });
-
-      refs.statsBody.appendChild(row);
-    });
-  }
-
-  async function refreshStats(force = false) {
-    if (!state.user) {
-      state.stats = [];
-      state.statsLoaded = false;
-      renderStatsTable();
-      return [];
-    }
-    if (state.statsLoading) return state.stats;
-    if (state.statsLoaded && !force) return state.stats;
-    state.statsLoading = true;
-    if (refs.statsStatus) {
-      refs.statsStatus.textContent = fromEntities('Carregando estat&iacute;sticas...');
-      refs.statsStatus.classList.remove('error');
-    }
-    try {
-      const { ok, data } = await fetchJSON('/api/stats', { method: 'GET' });
-      if (!ok) {
-        if (refs.statsStatus) {
-          refs.statsStatus.textContent = data?.error || fromEntities('N&atilde;o foi poss&iacute;vel carregar as estat&iacute;sticas.');
-          refs.statsStatus.classList.add('error');
-        }
-        return state.stats;
-      }
-      state.stats = Array.isArray(data?.stats) ?data.stats : [];
-      state.statsLoaded = true;
-      if (refs.statsStatus) {
-        refs.statsStatus.textContent = '';
-      }
-      renderStatsTable();
-      notifyListeners();
-    } catch (err) {
-      if (refs.statsStatus) {
-        refs.statsStatus.textContent = fromEntities('Erro de conex&atilde;o ao carregar as estat&iacute;sticas.');
-        refs.statsStatus.classList.add('error');
-      }
-    } finally {
-      state.statsLoading = false;
-    }
-    return state.stats;
-  }
-
-  async function openStatsModal() {
-    if (!state.user) {
-      openModal(refs.loginModal);
-      return;
-    }
-    openModal(refs.statsModal);
-    await refreshStats(true);
-  }
-
-  async function fetchCurrentUser() {
-    try {
-      const { ok, data } = await fetchJSON('/api/me', { method: 'GET' });
-      if (!ok) {
-        setUser(null);
-        return null;
-      }
-      setUser(data?.user || null);
-      if (data?.user) {
-        await refreshStats(true);
-      }
-      return data?.user || null;
-    } catch (err) {
-      setUser(null);
-      return null;
-    }
-  }
-
-  function handleGlobalKeydown(event) {
-    if (event.key !== 'Escape') return;
-    [refs.loginModal, refs.registerModal, refs.statsModal].forEach((modal) => {
-      if (modal && !modal.classList.contains('hidden')) {
-        closeModal(modal);
-      }
-    });
-  }
-
-  function init() {
-    ensureModals();
-    renderControls();
+  function bindForms() {
     if (refs.loginForm) {
       refs.loginForm.addEventListener('submit', handleLogin);
     }
     if (refs.registerForm) {
       refs.registerForm.addEventListener('submit', handleRegister);
     }
-    document.addEventListener('keydown', handleGlobalKeydown);
-    fetchCurrentUser();
+  }
+
+  function bindOutsideClick() {
+    document.addEventListener('click', (event) => {
+      if (!refs.profileMenu) return;
+      if (refs.profileMenu.contains(event.target)) return;
+      handleProfileMenu(false);
+    });
+  }
+
+  async function bootstrapSession() {
+    try {
+      const user = await supabaseClient.getUser();
+      if (user) {
+        await hydrateUser(user);
+      } else {
+        hydrateUser(null);
+      }
+    } catch (err) {
+      console.warn('Falha ao restaurar sessão', err);
+      hydrateUser(null);
+    }
+  }
+
+  function protectRestrictedElements() {
+    const elements = document.querySelectorAll('[data-requires-auth]');
+    elements.forEach((el) => {
+      el.classList.toggle('hidden', !state.user);
+    });
+  }
+
+  function onAuthStateChange() {
+    supabaseClient.onAuthStateChange((user) => {
+      hydrateUser(user);
+      protectRestrictedElements();
+    });
+  }
+
+  function init() {
+    refs.controlsContainer = document.getElementById('authControls');
+    ensureModals();
+    bindModalEvents();
+    bindForms();
+    bindOutsideClick();
+    renderControls();
+    bootstrapSession();
+    onAuthStateChange();
+    utils.testLog('auth.init');
   }
 
   if (document.readyState === 'loading') {
@@ -600,5 +525,6 @@
         state.listeners = state.listeners.filter((fn) => fn !== callback);
       };
     },
+    logout,
   };
-})();
+})(window);

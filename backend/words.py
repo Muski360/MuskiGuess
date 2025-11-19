@@ -1,7 +1,7 @@
 import random
 
 words = [
-"abaco", "bosta", "monte", "monge", "abate", "acima", "acido", "lacre", "porco", "afeto",
+    "abaco", "bosta", "monte", "monge", "abate", "acima", "acido", "lacre", "porco", "afeto",
     "agora", "ajuda", "marca", "jatos", "aluno", "amigo", "anexo", "mijar", "apelo", "nicho",
     "aroma", "atual", "aviao", "banco", "visto", "bingo", "bolha", "telha", "bravo", "cacau",
     "raios", "canto", "carro", "casal", "certa", "cesto", "cinta", "claro", "cobre", "corte",
@@ -75,7 +75,7 @@ words = [
     "mapas", "mares", "meios", "melro", "menor", "nobel", "noiva", "noivo", "ombro", "opcao",
     "poema", "rocha", "roupa", "video", "vidro", "vilao", "vinho", "larga", "meiga", "magra",
     "velha", "pagar", "lhama", "lince", "larva", "aerar", "bagre", "brega", "fluor", "quati",
-    "reuso", "tripe", "trupe"
+    "reuso", "tripe", "trupe", "trevo", "treno", "lamas", "placa", "multa", "gesso", "vigia"
     ]
 # Lista EN fácil (5 letras, vocabulário simples)
 english_words_easy = [
