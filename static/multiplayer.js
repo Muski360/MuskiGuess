@@ -2,6 +2,7 @@
   const supabaseClient = window.supabaseClient;
   const wordService = window.wordService;
   const utils = window.muskiUtils;
+  const fromEntities = utils?.decodeHtml || ((v) => v);
   if (!supabaseClient || !wordService || !utils) {
     console.error(fromEntities('[multiplayer] Supabase, utils.js e wordService.js s&atilde;o obrigat&oacute;rios.'));
     return;

@@ -121,6 +121,20 @@ $$;
 
 grant execute on function public.lookup_room_by_code(text) to authenticated;
 
+-- Security definer helper to check room existence without being host/membro
+create or replace function public.room_exists(p_room_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists(
+    select 1 from public.multiplayer_rooms where id = p_room_id
+  );
+$$;
+
+grant execute on function public.room_exists(uuid) to authenticated;
+
 drop policy if exists "players_select_members" on public.multiplayer_players;
 create policy "players_select_members"
 on public.multiplayer_players
@@ -136,7 +150,7 @@ on public.multiplayer_players
 for insert
 with check (
   auth.uid() = user_id
-  and exists (select 1 from public.multiplayer_rooms where id = room_id)
+  and public.room_exists(room_id)
 );
 
 create policy "players_update_self_or_host"
