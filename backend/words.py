@@ -75,7 +75,8 @@ words = [
     "mapas", "mares", "meios", "melro", "menor", "nobel", "noiva", "noivo", "ombro", "opcao",
     "poema", "rocha", "roupa", "video", "vidro", "vilao", "vinho", "larga", "meiga", "magra",
     "velha", "pagar", "lhama", "lince", "larva", "aerar", "bagre", "brega", "fluor", "quati",
-    "reuso", "tripe", "trupe", "trevo", "treno", "lamas", "placa", "multa", "gesso", "vigia"
+    "reuso", "tripe", "trupe", "trevo", "treno", "lamas", "placa", "multa", "gesso", "vigia",
+    "sepia"
     ]
 # Lista EN fácil (5 letras, vocabulário simples)
 english_words_easy = [

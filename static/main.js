@@ -83,6 +83,8 @@ if (!wordService) {
   throw new Error('wordService.js precisa ser carregado antes de main.js');
 }
 
+const statsApi = window.statsApi || null;
+
 function getModeConfig(mode = gameMode) {
   return MODE_CONFIG[mode] || MODE_CONFIG.single;
 }
@@ -185,6 +187,7 @@ let gameFinished = false;
 let lastGameResult = null;
 
 let statsSynced = false;
+let statsSyncInFlight = false;
 
 let awaitingNewGame = false;
 
@@ -197,6 +200,44 @@ function fromEntities(str) {
   if (!str) return "";
   htmlDecoderEl.innerHTML = str;
   return htmlDecoderEl.value;
+}
+
+function resolveStatsModeSlug(mode) {
+  const normalized = (mode || '').toLowerCase();
+  if (normalized === 'single' || normalized === 'classic') return 'classic';
+  if (normalized === 'duet' || normalized === 'dupleto') return 'dupleto';
+  if (normalized === 'quaplet' || normalized === 'quapleto') return 'quapleto';
+  if (normalized === 'multiplayer') return 'multiplayer';
+  return null;
+}
+
+async function attemptRemoteStatsSync() {
+  if (!statsApi || typeof statsApi.recordResult !== 'function') return;
+  if (statsSynced || statsSyncInFlight) return;
+  if (!gameFinished || !lastGameResult) return;
+  const authApi = window.auth;
+  const user = authApi?.getUser?.();
+  if (!user?.id) return;
+  const statsMode = lastGameResult.statsMode || resolveStatsModeSlug(lastGameResult.mode || gameMode);
+  if (!statsMode) return;
+  statsSyncInFlight = true;
+  try {
+    await statsApi.recordResult({
+      userId: user.id,
+      mode: statsMode,
+      won: !!lastGameResult.won,
+    });
+    statsSynced = true;
+    lastGameResult.synced = true;
+    persistState();
+    if (typeof authApi?.refreshStats === 'function') {
+      await authApi.refreshStats(true);
+    }
+  } catch (error) {
+    console.warn('[stats] Falha ao sincronizar estatísticas remotas', error);
+  } finally {
+    statsSyncInFlight = false;
+  }
 }
 
 function isExternalTextInputActive() {
@@ -292,6 +333,7 @@ function handleAuthSnapshot(snapshot) {
 
   refreshRestrictedUI();
 
+  attemptRemoteStatsSync();
 }
 
 
@@ -1982,6 +2024,8 @@ function attemptResumeFromStorage({ mode = gameMode, lang = currentLang } = {}) 
 
   lastGameResult = saved.lastGameResult || null;
 
+  statsSynced = Boolean(saved.lastGameResult && saved.lastGameResult.synced);
+
 
   document.title = saved.titleText || 'MuskiGuess';
 
@@ -2223,6 +2267,8 @@ async function newGame(options = {}) {
 
 
     statsSynced = false;
+
+    statsSyncInFlight = false;
 
 
     guessHistory = [];
@@ -3567,9 +3613,27 @@ async function sendGuess(guess) {
 
   lastGameResult = {
 
+
+
     won: !!data.won,
 
+
+
     gameOver: !!data.gameOver,
+
+
+
+    mode: gameMode,
+
+
+
+    statsMode: resolveStatsModeSlug(gameMode),
+
+
+
+    synced: false,
+
+
 
   };
 
@@ -3644,11 +3708,9 @@ async function sendGuess(guess) {
 
   }
 
-  if (gameFinished && !statsSynced && window.auth && typeof window.auth.refreshStats === 'function') {
+  if (gameFinished) {
 
-    statsSynced = true;
-
-    window.auth.refreshStats(true);
+    attemptRemoteStatsSync();
 
   }
 

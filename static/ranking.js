@@ -134,14 +134,20 @@
     if (error) throw error;
     const rows = Array.isArray(data) ? data : [];
     const mapped = rows
-      .map((row) => ({
-        userId: row.user_id,
-        mode: row.mode,
-        wins: row.num_wins,
-        games: row.num_games,
-        profile: utils.publicProfile(row.profiles),
-      }))
-      .filter((row) => row.profile.username);
+      .map((row) => {
+        const profileData = row?.profiles ? utils.publicProfile(row.profiles) : null;
+        if (!profileData || !profileData.username) {
+          return null;
+        }
+        return {
+          userId: row.user_id,
+          mode: row.mode,
+          wins: row.num_wins,
+          games: row.num_games,
+          profile: profileData,
+        };
+      })
+      .filter(Boolean);
     utils.testLog(`ranking.fetch.${mode}`);
     return mapped;
   }

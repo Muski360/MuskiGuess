@@ -27,8 +27,10 @@
     profileMenu: null,
   };
 
+  const fromEntities = utils.decodeHtml;
+
   const MODE_LABELS = {
-    classic: utils.decodeHtml('Cl&aacute;ssico'),
+    classic: fromEntities('Cl&aacute;ssico'),
     dupleto: 'Dupleto',
     quapleto: 'Quapleto',
     multiplayer: 'Multiplayer',
@@ -135,7 +137,7 @@
     if (state.statsLoaded && !force) return state.stats;
     state.statsLoading = true;
     if (refs.statsStatus) {
-      refs.statsStatus.textContent = 'Carregando estatÃ­sticas...';
+      refs.statsStatus.textContent = fromEntities('Carregando estat&iacute;sticas...');
       refs.statsStatus.classList.remove('error');
     }
     try {
@@ -147,7 +149,7 @@
       if (refs.statsStatus) refs.statsStatus.textContent = '';
       utils.testLog('auth.refreshStats');
     } catch (err) {
-      const message = utils.normalizeError(err, 'Erro ao carregar estatÃ­sticas.');
+      const message = utils.normalizeError(err, fromEntities('Erro ao carregar estat&iacute;sticas.'));
       if (refs.statsStatus) {
         refs.statsStatus.textContent = message;
         refs.statsStatus.classList.add('error');
@@ -225,8 +227,8 @@
           <p class="profile-username">${escapeHtml(state.user.username || '')}</p>
           <p class="profile-tag">${escapeHtml(state.user.tag || '')}</p>
         </div>
-        <p class="profile-level">NÃ­vel ${state.user.level} Â· ${state.user.experience} XP</p>
-        <button type="button" class="profile-action" data-profile-stats>Minhas estatÃ­sticas</button>
+        <p class="profile-level">${fromEntities('N&iacute;vel')} ${state.user.level} &middot; ${state.user.experience} XP</p>
+        <button type="button" class="profile-action" data-profile-stats>${fromEntities('Minhas estat&iacute;sticas')}</button>
         <button type="button" class="profile-action danger" data-profile-logout>Sair</button>
       </div>
     `;
@@ -272,7 +274,7 @@
       closeModal(refs.loginModal);
       utils.testLog('auth.login');
     } catch (err) {
-      const message = utils.normalizeError(err, 'Não foi possível entrar.');
+      const message = utils.normalizeError(err, fromEntities('N&atilde;o foi poss&iacute;vel entrar.'));
       if (errorEl) errorEl.textContent = message;
     }
   }
@@ -298,11 +300,11 @@
       });
       if (error) throw error;
       const user = data.user;
-      if (!user) throw new Error('Cadastro realizado, finalize a confirmação pelo e-mail.');
+      if (!user) throw new Error(fromEntities('Cadastro realizado, finalize a confirma&ccedil;&atilde;o pelo e-mail.'));
       const hasSession = Boolean(data.session?.access_token);
       if (!hasSession) {
         if (statusEl) {
-          statusEl.textContent = 'Enviamos um link de confirmação para o seu e-mail. Confirme para entrar.';
+          statusEl.textContent = fromEntities('Enviamos um link de confirma&ccedil;&atilde;o para o seu e-mail. Confirme para entrar.');
           statusEl.classList.remove('error');
           statusEl.classList.add('info');
         }
@@ -318,7 +320,7 @@
       closeModal(refs.registerModal);
       utils.testLog('auth.register');
     } catch (err) {
-      const message = utils.normalizeError(err, 'Não foi possível criar sua conta.');
+      const message = utils.normalizeError(err, fromEntities('N&atilde;o foi poss&iacute;vel criar sua conta.'));
       if (errorEl) errorEl.textContent = message;
       if (statusEl) {
         statusEl.textContent = '';
@@ -344,7 +346,7 @@
       const form = button?.closest('form');
       const errorEl = form?.querySelector('.auth-error');
       if (errorEl) {
-        errorEl.textContent = utils.normalizeError(err, 'Não foi possível abrir o Google.');
+        errorEl.textContent = utils.normalizeError(err, fromEntities('N&atilde;o foi poss&iacute;vel abrir o Google.'));
       }
       if (button) button.disabled = false;
     }
@@ -436,7 +438,7 @@
           <h2 id="registerTitle">Criar conta</h2>
           <form id="registerForm" class="auth-form">
             <label>
-              <span>UsuÃ¡rio</span>
+              <span>Usu&aacute;rio</span>
               <input type="text" name="username" maxlength="12" required autocomplete="username" />
             </label>
             <label>
@@ -473,7 +475,7 @@
           <div class="stats-header">
             <div>
               <p class="stats-eyebrow">Painel geral</p>
-              <h2 id="statsTitle">Suas estatÃ­sticas</h2>
+              <h2 id="statsTitle">Suas estat&iacute;sticas</h2>
             </div>
             <p class="stats-status" id="statsStatus"></p>
           </div>
@@ -483,7 +485,7 @@
                 <tr>
                   <th>Modo</th>
                   <th>Jogos</th>
-                  <th>VitÃ³rias</th>
+                  <th>Vit&oacute;rias</th>
                   <th>Derrotas</th>
                 </tr>
               </thead>
@@ -549,7 +551,7 @@
         hydrateUser(null);
       }
     } catch (err) {
-      console.warn('Falha ao restaurar sessÃ£o', err);
+      console.warn(fromEntities('Falha ao restaurar sess&atilde;o'), err);
       hydrateUser(null);
     }
   }

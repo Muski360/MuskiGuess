@@ -5,6 +5,8 @@
     throw new Error('utils.js e supabaseClient.js precisam ser carregados antes de profiles.js');
   }
 
+  const fromEntities = utils.decodeHtml;
+
   const XP_PER_LEVEL = 100;
 
   function sanitizeUsername(raw, fallback = 'player') {
@@ -44,7 +46,7 @@
   }
 
   async function createProfile({ userId, username, tag }) {
-    if (!userId) throw new Error('userId é obrigatório para criar profile');
+    if (!userId) throw new Error('userId is required to create a profile');
     const supabase = supabaseClient.getClient();
     let attempts = 0;
     let lastError = null;
@@ -66,6 +68,34 @@
         finalProfile = mapProfile(data);
         break;
       }
+
+      lastError = error;
+      const normalizedMessage = String(error?.message || '').toLowerCase();
+      const isPkDuplicate =
+        (error?.code === '23505' && normalizedMessage.includes('profiles_pkey')) ||
+        normalizedMessage.includes('duplicate key value violates unique constraint "profiles_pkey"');
+      if (isPkDuplicate) {
+        const existingProfile = await fetchProfile(userId);
+        if (existingProfile) {
+          finalProfile = existingProfile;
+          break;
+        }
+      }
+      if (normalizedMessage.includes('duplicate')) {
+        username = `${candidateUsername}${Math.floor(Math.random() * 90 + 10)}`;
+        attempts += 1;
+        continue;
+      }
+      break;
+    }
+
+    if (!finalProfile) {
+      throw lastError || new Error(fromEntities('N&atilde;o foi poss&iacute;vel criar o perfil.'));
+    }
+    utils.testLog('profiles.createProfile');
+    return finalProfile;
+  }
+
 
       lastError = error;
       // Se username já existe, tenta outro.
