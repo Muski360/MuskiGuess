@@ -26,6 +26,7 @@
     currentSolution: null,
     isHost: false,
     loading: false,
+    pollTimer: null,
   };
 
   const refs = {
@@ -60,6 +61,8 @@
     roundResultOverlay: document.getElementById('roundResultOverlay'),
     roundResultMessage: document.getElementById('roundResultMessage'),
     roundResultWord: document.getElementById('roundResultWord'),
+    countdownOverlay: document.getElementById('countdownOverlay'),
+    countdownNumber: document.getElementById('countdownNumber'),
   };
 
   const boards = new Map();
@@ -174,6 +177,7 @@
     if (!inMatch) {
       refs.roomCodeText.textContent = '----';
       clearGuessInputs();
+      setGuessInputsEnabled(false);
     }
   }
 
@@ -204,19 +208,20 @@
     const lang = getSelectedLanguage();
     try {
       state.loading = true;
-      const payload = await createRoomInSupabase({ displayName, rounds, lang });
-      state.room = payload.room;
-      state.player = payload.player;
-      state.isHost = true;
-      state.currentSolution = null;
-      toggleGameView(true);
-      updateLobbyStatus('Sala criada! Aguarde os jogadores.');
-      showToast(`Sala ${payload.room.code} criada.`);
-      subscribeToRoom(payload.room.id);
-      await refreshPlayers();
-      refs.roomCodeText.textContent = payload.room.code;
-      refs.displayNameValue.textContent = displayName;
-    } catch (error) {
+    const payload = await createRoomInSupabase({ displayName, rounds, lang });
+    state.room = payload.room;
+    state.player = payload.player;
+    state.isHost = true;
+    state.currentSolution = null;
+    toggleGameView(true);
+    updateLobbyStatus('Sala criada! Aguarde os jogadores.');
+    showToast(`Sala ${payload.room.code} criada.`);
+    subscribeToRoom(payload.room.id);
+    startRoomPolling();
+    await refreshPlayers();
+    refs.roomCodeText.textContent = payload.room.code;
+    refs.displayNameValue.textContent = displayName;
+  } catch (error) {
       console.error('[multiplayer] create room', error);
       showToast(normalizeError(error, fromEntities('N&atilde;o foi poss&iacute;vel criar a sala.')));
     } finally {
@@ -246,6 +251,7 @@
       updateLobbyStatus(fromEntities('Conectado &agrave; sala. Aguarde o host iniciar.'));
       showToast(`Entrou na sala ${code}.`);
       subscribeToRoom(payload.room.id);
+      startRoomPolling();
       await refreshPlayers();
       await refreshGuesses();
     } catch (error) {
@@ -318,6 +324,7 @@
       state.channel.unsubscribe();
       state.channel = null;
     }
+    stopRoomPolling();
     if (state.room) {
       clearStoredSolution(state.room.id, state.room.round_number);
     }
@@ -533,12 +540,20 @@
         state.currentSolution = loadStoredSolution(room.id, room.round_number);
       }
       refreshGuesses();
+      if (room.round_active) {
+        setGuessInputsEnabled(true);
+        startCountdown();
+      }
     }
     if (!room.round_active && room.answer_reveal) {
       clearStoredSolution(room.id, room.round_number);
       showRoundResult(room);
+      setGuessInputsEnabled(false);
     } else {
       hideRoundResult();
+    }
+    if (!room.round_active) {
+      setGuessInputsEnabled(false);
     }
   }
 
@@ -547,6 +562,12 @@
     refs.hostPanel.classList.toggle('hidden', !state.isHost);
     refs.startMatchBtn?.toggleAttribute('disabled', !state.isHost);
     refs.playAgainBtn?.toggleAttribute('disabled', !state.isHost);
+  }
+  function setGuessInputsEnabled(enabled) {
+    refs.letterInputs.forEach((input) => {
+      input.toggleAttribute('disabled', !enabled);
+    });
+    refs.guessForm?.classList.toggle('mp-disabled', !enabled);
   }
 
   function resetBoardsForNewRound() {
@@ -588,6 +609,10 @@
       state.room = data;
       resetBoardsForNewRound();
       showToast('Rodada iniciada!');
+      setGuessInputsEnabled(true);
+      startCountdown();
+      await refreshGuesses();
+      await refreshPlayers();
     } catch (error) {
       console.error('[multiplayer] start round', error);
       showToast(normalizeError(error, fromEntities('N&atilde;o foi poss&iacute;vel iniciar a rodada.')));
@@ -621,6 +646,7 @@
       });
       if (error) throw error;
       clearGuessInputs();
+      await refreshGuesses();
     } catch (err) {
       console.error('[multiplayer] submit guess', err);
       showToast(normalizeError(err, fromEntities('N&atilde;o foi poss&iacute;vel enviar o palpite.')));
@@ -666,10 +692,13 @@
     try {
       const feedback = buildFeedback(row.guess, state.currentSolution);
       const isCorrect = feedback.every((item) => item.status === 'correct');
-      await supabase.from('multiplayer_guesses').update({
-        feedback,
-        is_correct: isCorrect,
-      }).eq('id', row.id);
+      await supabase
+        .from('multiplayer_guesses')
+        .update({
+          feedback,
+          is_correct: isCorrect,
+        })
+        .eq('id', row.id);
       if (isCorrect) {
         await supabase.rpc('increment_player_score', { p_player_id: row.player_id }).catch(() => {});
         await supabase
@@ -681,6 +710,7 @@
             answer_reveal: state.currentSolution,
           })
           .eq('id', state.room.id);
+        setGuessInputsEnabled(false);
       }
     } catch (error) {
       console.error('[multiplayer] evaluate guess', error);
@@ -806,6 +836,22 @@
     refs.roundResultOverlay.classList.add('hidden');
   }
 
+  function startCountdown() {
+    if (!refs.countdownOverlay || !refs.countdownNumber) return;
+    refs.countdownOverlay.classList.remove('hidden');
+    const sequence = ['3', '2', '1'];
+    sequence.forEach((num, idx) => {
+      setTimeout(() => {
+        refs.countdownNumber.textContent = num;
+      }, idx * 600);
+    });
+    setTimeout(() => {
+      refs.countdownOverlay.classList.add('hidden');
+      refs.countdownNumber.textContent = '3';
+      refs.letterInputs[0]?.focus();
+    }, sequence.length * 600 + 200);
+  }
+
   function normalizeError(err, fallback) {
     return utils.normalizeError(err, fallback);
   }
@@ -851,6 +897,24 @@
       sessionStorage.removeItem(buildSolutionKey(roomId, roundNumber));
     } catch (error) {
       /* ignore */
+    }
+  }
+
+  function startRoomPolling() {
+    stopRoomPolling();
+    state.pollTimer = setInterval(() => {
+      refreshRoom();
+      refreshPlayers();
+      if (state.room?.round_active) {
+        refreshGuesses();
+      }
+    }, 1500);
+  }
+
+  function stopRoomPolling() {
+    if (state.pollTimer) {
+      clearInterval(state.pollTimer);
+      state.pollTimer = null;
     }
   }
 })(window);
