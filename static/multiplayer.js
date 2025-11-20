@@ -719,6 +719,12 @@
     }
   }
 
+  function evaluatePendingGuesses() {
+    if (!state.isHost || !state.currentSolution) return;
+    const pending = state.guesses.filter((row) => row && !row.feedback);
+    pending.forEach((row) => evaluatePendingGuess(row));
+  }
+
   function buildFeedback(guess, answer) {
     const result = [];
     const answerLetters = answer.split('');
@@ -810,10 +816,11 @@
     const rowIndex = Math.max(0, guess.attempt_number - 1);
     const rowEl = rows[rowIndex];
     if (!rowEl) return;
+    const shouldHideLetters = guess.player_id !== state.player?.id;
     for (let i = 0; i < 5; i += 1) {
       const cell = rowEl.children[i];
       const letter = guess.guess[i] || '';
-      cell.textContent = letter || '';
+      cell.textContent = shouldHideLetters ? '' : (letter || '');
       cell.classList.remove('status-green', 'status-yellow', 'status-gray', 'revealed');
       if (guess.feedback && guess.feedback[i]) {
         const status = guess.feedback[i].status;
