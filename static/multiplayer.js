@@ -326,6 +326,11 @@
     refs.attemptsInfo.textContent = '';
     refs.statusMessage.textContent = '';
     toggleGameView(false);
+    refs.entryView?.classList.remove('hidden');
+    refs.gameView?.classList.add('hidden');
+    refs.guessForm?.classList.add('hidden');
+    refs.playAgainBtn?.classList.add('hidden');
+    refs.roomCodeWrap?.classList.add('hidden');
     updateLobbyStatus(fromEntities('Crie ou entre em uma sala para come&ccedil;ar.'));
   }
 
@@ -360,10 +365,8 @@
 
   async function joinRoomInSupabase({ displayName, code }) {
     const { data: room, error } = await supabase
-      .from('multiplayer_rooms')
-      .select('*')
-      .eq('code', code)
-      .maybeSingle();
+      .rpc('lookup_room_by_code', { p_code: code })
+      .single();
     if (error || !room) {
       throw new Error('Sala nao encontrada.');
     }
@@ -496,6 +499,9 @@
   }
 
   function applyRoomUpdate(room) {
+    if (!room || (state.room && room.id !== state.room.id)) {
+      return;
+    }
     const previousRound = state.room?.round_number || 0;
     const previousActive = state.room?.round_active || false;
     state.room = room;

@@ -106,6 +106,21 @@ on public.multiplayer_rooms
 for delete
 using (auth.uid() = host_id);
 
+-- Helper function for lookup by code (permite join sem expor todas as salas)
+create or replace function public.lookup_room_by_code(p_code text)
+returns public.multiplayer_rooms
+language sql
+security definer
+set search_path = public
+as $$
+  select *
+  from public.multiplayer_rooms
+  where upper(code) = upper(p_code)
+  limit 1;
+$$;
+
+grant execute on function public.lookup_room_by_code(text) to authenticated;
+
 create policy "players_select_members"
 on public.multiplayer_players
 for select
