@@ -121,10 +121,15 @@ $$;
 
 grant execute on function public.lookup_room_by_code(text) to authenticated;
 
+drop policy if exists "players_select_members" on public.multiplayer_players;
 create policy "players_select_members"
 on public.multiplayer_players
 for select
-using (public.is_room_member(room_id) or auth.uid() = user_id);
+using (
+  public.is_room_member(room_id)
+  or auth.uid() = user_id
+  or auth.uid() = (select host_id from public.multiplayer_rooms where id = room_id)
+);
 
 create policy "players_insert_self"
 on public.multiplayer_players
@@ -171,10 +176,14 @@ create table public.multiplayer_guesses (
 
 alter table public.multiplayer_guesses enable row level security;
 
+drop policy if exists "guesses_select_members" on public.multiplayer_guesses;
 create policy "guesses_select_members"
 on public.multiplayer_guesses
 for select
-using (public.is_room_member(room_id));
+using (
+  public.is_room_member(room_id)
+  or auth.uid() = (select host_id from public.multiplayer_rooms where id = room_id)
+);
 
 create policy "guesses_insert_player"
 on public.multiplayer_guesses

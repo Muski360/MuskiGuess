@@ -170,6 +170,10 @@
     refs.leaveRoomBtn?.classList.toggle('hidden', !inMatch);
     refs.guessForm?.classList.toggle('hidden', !inMatch);
     refs.playAgainBtn?.classList.toggle('hidden', !inMatch);
+    if (!inMatch) {
+      refs.roomCodeText.textContent = '----';
+      clearGuessInputs();
+    }
   }
 
   function updateLobbyStatus(message) {
@@ -228,6 +232,7 @@
       showToast(fromEntities('C&oacute;digo inv&aacute;lido.'));
       return;
     }
+    showToast(`Conectando à sala ${code}...`);
     try {
       state.loading = true;
       const payload = await joinRoomInSupabase({ displayName, code });
@@ -245,6 +250,8 @@
     } catch (error) {
       console.error('[multiplayer] join room', error);
       showToast(normalizeError(error, fromEntities('N&atilde;o foi poss&iacute;vel entrar na sala.')));
+      toggleGameView(false);
+      cleanupRoomState();
     } finally {
       state.loading = false;
     }
@@ -332,6 +339,7 @@
     refs.playAgainBtn?.classList.add('hidden');
     refs.roomCodeWrap?.classList.add('hidden');
     updateLobbyStatus(fromEntities('Crie ou entre em uma sala para come&ccedil;ar.'));
+    showToast(fromEntities('Voc&ecirc; saiu da sala.'));
   }
 
   async function createRoomInSupabase({ displayName, rounds, lang }) {
