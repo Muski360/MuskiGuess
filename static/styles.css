@@ -155,11 +155,14 @@ body::-webkit-scrollbar-corner {
   justify-content: flex-end;
   gap: 12px;
   flex: 0 1 auto;
+  flex-wrap: nowrap;
 }
 
 .top-bar .auth-controls {
   margin: 0;
   justify-content: flex-end;
+  flex: 0 1 auto;
+  min-width: auto;
 }
 
 .leaderboard-btn {
@@ -221,6 +224,11 @@ body::-webkit-scrollbar-corner {
 
 @media (max-width: 768px) {
   .top-bar {
+    justify-content: center;
+  }
+  .top-bar-actions {
+    flex-wrap: wrap;
+    width: 100%;
     justify-content: center;
   }
   .top-bar .auth-controls {

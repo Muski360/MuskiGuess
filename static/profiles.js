@@ -96,24 +96,6 @@
     return finalProfile;
   }
 
-
-      lastError = error;
-      // Se username já existe, tenta outro.
-      if (String(error?.message || '').toLowerCase().includes('duplicate')) {
-        username = `${candidateUsername}${Math.floor(Math.random() * 90 + 10)}`;
-      } else {
-        break;
-      }
-      attempts += 1;
-    }
-
-    if (!finalProfile) {
-      throw lastError || new Error('Não foi possível criar o perfil.');
-    }
-    utils.testLog('profiles.createProfile');
-    return finalProfile;
-  }
-
   async function ensureProfile(user, options = {}) {
     const userId = typeof user === 'string' ? user : user?.id;
     if (!userId) return null;
