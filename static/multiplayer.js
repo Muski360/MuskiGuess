@@ -540,6 +540,7 @@
         state.currentSolution = loadStoredSolution(room.id, room.round_number);
       }
       refreshGuesses();
+      evaluatePendingGuesses();
       if (room.round_active) {
         setGuessInputsEnabled(true);
         startCountdown();
@@ -647,6 +648,7 @@
       if (error) throw error;
       clearGuessInputs();
       await refreshGuesses();
+      evaluatePendingGuesses();
     } catch (err) {
       console.error('[multiplayer] submit guess', err);
       showToast(normalizeError(err, fromEntities('N&atilde;o foi poss&iacute;vel enviar o palpite.')));
@@ -770,6 +772,7 @@
     state.guesses.forEach((guess) => {
       applyGuessToBoard(guess);
     });
+    evaluatePendingGuesses();
   }
 
   function ensureBoardForPlayer(player) {
