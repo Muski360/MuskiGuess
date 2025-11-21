@@ -710,7 +710,8 @@
         })
         .eq('id', row.id);
       if (isCorrect) {
-        await supabase.rpc('increment_player_score', { p_player_id: row.player_id }).catch(() => {});
+      const { error: xpError } = await supabase.rpc('increment_player_score', { p_player_id: row.player_id });
+      if (xpError) throw xpError;
         await supabase
           .from('multiplayer_rooms')
           .update({
