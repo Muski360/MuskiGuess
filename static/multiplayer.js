@@ -27,7 +27,7 @@
     isHost: false,
     loading: false,
     pollTimer: null,
-    countdownTimer: null,
+    countdownTimers: [],
   };
 
   const refs = {
@@ -327,6 +327,7 @@
       state.channel = null;
     }
     stopRoomPolling();
+    clearCountdown();
     if (state.room) {
       clearStoredSolution(state.room.id, state.room.round_number);
     }
@@ -552,11 +553,13 @@
       clearStoredSolution(room.id, room.round_number);
       showRoundResult(room);
       setGuessInputsEnabled(false);
+      clearCountdown();
     } else {
       hideRoundResult();
     }
     if (!room.round_active) {
       setGuessInputsEnabled(false);
+      clearCountdown();
     }
     evaluatePendingGuesses();
   }
@@ -710,22 +713,24 @@
         })
         .eq('id', row.id);
       if (isCorrect) {
-      const { error: xpError } = await supabase.rpc('increment_player_score', { p_player_id: row.player_id });
-      if (xpError) throw xpError;
-        await supabase
-          .from('multiplayer_rooms')
-          .update({
-            round_active: false,
-            status: 'round_complete',
-            round_winner_id: row.player_id,
-            answer_reveal: state.currentSolution,
-          })
-          .eq('id', state.room.id);
+        const { error: xpError } = await supabase.rpc('increment_player_score', { p_player_id: row.player_id });
+        if (xpError) throw xpError;
+        const payload = {
+          round_active: false,
+          status: 'round_complete',
+          round_winner_id: row.player_id,
+          answer_reveal: state.currentSolution,
+        };
+        state.room = { ...state.room, ...payload };
+        await supabase.from('multiplayer_rooms').update(payload).eq('id', state.room.id);
         setGuessInputsEnabled(false);
+        clearCountdown();
         showRoundResult({
           round_winner_id: row.player_id,
           answer_reveal: state.currentSolution,
         });
+        toggleHostControls();
+        state.currentSolution = null;
       } else {
         checkRoundCompletion();
       }
@@ -863,22 +868,43 @@
 
   function startCountdown() {
     if (!refs.countdownOverlay || !refs.countdownNumber) return;
+    clearCountdown();
     refs.countdownOverlay.style.display = 'flex';
     refs.countdownOverlay.style.opacity = '1';
     refs.countdownOverlay.classList.remove('hidden');
+    const numberEl = refs.countdownNumber;
     const sequence = ['3', '2', '1'];
     sequence.forEach((num, idx) => {
-      setTimeout(() => {
-        refs.countdownNumber.textContent = num;
+      const timer = setTimeout(() => {
+        numberEl.classList.remove('animate');
+        // force reflow to restart animation
+        void numberEl.offsetWidth;
+        numberEl.textContent = num;
+        numberEl.classList.add('animate');
       }, idx * 600);
+      state.countdownTimers.push(timer);
     });
-    setTimeout(() => {
+    const endTimer = setTimeout(() => {
+      clearCountdown();
+      refs.letterInputs[0]?.focus();
+    }, sequence.length * 600 + 200);
+    state.countdownTimers.push(endTimer);
+  }
+
+  function clearCountdown() {
+    if (state.countdownTimers?.length) {
+      state.countdownTimers.forEach((timer) => clearTimeout(timer));
+    }
+    state.countdownTimers = [];
+    if (refs.countdownOverlay) {
       refs.countdownOverlay.classList.add('hidden');
       refs.countdownOverlay.style.display = 'none';
       refs.countdownOverlay.style.opacity = '0';
+    }
+    if (refs.countdownNumber) {
       refs.countdownNumber.textContent = '3';
-      refs.letterInputs[0]?.focus();
-    }, sequence.length * 600 + 200);
+      refs.countdownNumber.classList.remove('animate');
+    }
   }
 
   function normalizeError(err, fallback) {
@@ -958,12 +984,16 @@
         round_winner_id: winnerPlayerId,
         answer_reveal: state.currentSolution,
       };
+      state.room = { ...state.room, ...payload };
       await supabase.from('multiplayer_rooms').update(payload).eq('id', state.room.id);
+      clearCountdown();
       showRoundResult({
         round_winner_id: winnerPlayerId,
         answer_reveal: state.currentSolution,
       });
       setGuessInputsEnabled(false);
+      toggleHostControls();
+      state.currentSolution = null;
     } catch (error) {
       console.error('[multiplayer] finishRound', error);
     }
