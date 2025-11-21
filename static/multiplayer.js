@@ -848,6 +848,8 @@
 
   function startCountdown() {
     if (!refs.countdownOverlay || !refs.countdownNumber) return;
+    refs.countdownOverlay.style.display = 'flex';
+    refs.countdownOverlay.style.opacity = '1';
     refs.countdownOverlay.classList.remove('hidden');
     const sequence = ['3', '2', '1'];
     sequence.forEach((num, idx) => {
@@ -857,6 +859,8 @@
     });
     setTimeout(() => {
       refs.countdownOverlay.classList.add('hidden');
+      refs.countdownOverlay.style.display = 'none';
+      refs.countdownOverlay.style.opacity = '0';
       refs.countdownNumber.textContent = '3';
       refs.letterInputs[0]?.focus();
     }, sequence.length * 600 + 200);
@@ -917,8 +921,9 @@
       refreshPlayers();
       if (state.room?.round_active) {
         refreshGuesses();
+        evaluatePendingGuesses();
       }
-    }, 1500);
+    }, 500);
   }
 
   function stopRoomPolling() {
