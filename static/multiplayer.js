@@ -30,6 +30,11 @@
     countdownTimers: [],
   };
 
+  function hasMinimumPlayers(min = 2) {
+    const activePlayers = state.players.filter((player) => !player.is_bot);
+    return activePlayers.length >= min;
+  }
+
   const refs = {
     entryView: document.getElementById('entryView'),
     gameView: document.getElementById('gameView'),
@@ -566,10 +571,12 @@
 
   function toggleHostControls() {
     if (!refs.hostPanel) return;
-    refs.hostPanel.classList.toggle('hidden', !state.isHost);
-    const disable = !state.isHost || state.room?.round_active;
+    const roundActive = !!state.room?.round_active;
+    const hasPlayers = hasMinimumPlayers();
+    refs.hostPanel.classList.toggle('hidden', !state.isHost || roundActive);
+    const disable = !state.isHost || roundActive || !hasPlayers;
     refs.hostPanel.classList.toggle('mp-host-disabled', !!state.room?.round_active);
-    refs.startMatchBtn?.toggleAttribute('disabled', !state.isHost);
+    refs.startMatchBtn?.toggleAttribute('disabled', disable);
     refs.playAgainBtn?.toggleAttribute('disabled', disable);
   }
   function setGuessInputsEnabled(enabled) {
@@ -589,6 +596,10 @@
   async function handleStartRound() {
     if (!state.isHost) {
       showToast('Somente o host pode iniciar a rodada.');
+      return;
+    }
+    if (!hasMinimumPlayers()) {
+      showToast('É necessário pelo menos 2 jogadores para iniciar.');
       return;
     }
     if (!state.room) return;
@@ -788,6 +799,7 @@
       ensureBoardForPlayer(player);
     });
     refs.scoreboardList.appendChild(fragment);
+    toggleHostControls();
   }
 
   function renderGuesses() {
