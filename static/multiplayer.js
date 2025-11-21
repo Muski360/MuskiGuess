@@ -27,6 +27,7 @@
     isHost: false,
     loading: false,
     pollTimer: null,
+    countdownTimer: null,
   };
 
   const refs = {
@@ -79,6 +80,7 @@
     refs.addBotBtn?.setAttribute('disabled', 'true');
     refs.addBotBtn?.classList.add('mp-btn-disabled');
     refs.addBotBtn?.setAttribute('title', fromEntities('Bots n&atilde;o est&atilde;o dispon&iacute;veis na vers&atilde;o Supabase.'));
+    setGuessInputsEnabled(false);
   }
 
   function bindUiEvents() {
@@ -556,13 +558,16 @@
     if (!room.round_active) {
       setGuessInputsEnabled(false);
     }
+    evaluatePendingGuesses();
   }
 
   function toggleHostControls() {
     if (!refs.hostPanel) return;
     refs.hostPanel.classList.toggle('hidden', !state.isHost);
+    const disable = !state.isHost || state.room?.round_active;
+    refs.hostPanel.classList.toggle('mp-host-disabled', !!state.room?.round_active);
     refs.startMatchBtn?.toggleAttribute('disabled', !state.isHost);
-    refs.playAgainBtn?.toggleAttribute('disabled', !state.isHost);
+    refs.playAgainBtn?.toggleAttribute('disabled', disable);
   }
   function setGuessInputsEnabled(enabled) {
     refs.letterInputs.forEach((input) => {
@@ -614,6 +619,8 @@
       startCountdown();
       await refreshGuesses();
       await refreshPlayers();
+      evaluatePendingGuesses();
+      checkRoundCompletion();
     } catch (error) {
       console.error('[multiplayer] start round', error);
       showToast(normalizeError(error, fromEntities('N&atilde;o foi poss&iacute;vel iniciar a rodada.')));
@@ -649,6 +656,7 @@
       clearGuessInputs();
       await refreshGuesses();
       evaluatePendingGuesses();
+      checkRoundCompletion();
     } catch (err) {
       console.error('[multiplayer] submit guess', err);
       showToast(normalizeError(err, fromEntities('N&atilde;o foi poss&iacute;vel enviar o palpite.')));
@@ -713,6 +721,12 @@
           })
           .eq('id', state.room.id);
         setGuessInputsEnabled(false);
+        showRoundResult({
+          round_winner_id: row.player_id,
+          answer_reveal: state.currentSolution,
+        });
+      } else {
+        checkRoundCompletion();
       }
     } catch (error) {
       console.error('[multiplayer] evaluate guess', error);
@@ -924,6 +938,34 @@
         evaluatePendingGuesses();
       }
     }, 500);
+  }
+
+  function checkRoundCompletion() {
+    if (!state.isHost || !state.room?.round_active) return;
+    const maxAttempts = state.room.attempt_limit || 6;
+    const exhausted = state.players.every((player) => getAttemptNumberForPlayer(player.id) >= maxAttempts);
+    if (exhausted) {
+      finishRound(null);
+    }
+  }
+
+  async function finishRound(winnerPlayerId) {
+    try {
+      const payload = {
+        round_active: false,
+        status: 'round_complete',
+        round_winner_id: winnerPlayerId,
+        answer_reveal: state.currentSolution,
+      };
+      await supabase.from('multiplayer_rooms').update(payload).eq('id', state.room.id);
+      showRoundResult({
+        round_winner_id: winnerPlayerId,
+        answer_reveal: state.currentSolution,
+      });
+      setGuessInputsEnabled(false);
+    } catch (error) {
+      console.error('[multiplayer] finishRound', error);
+    }
   }
 
   function stopRoomPolling() {
