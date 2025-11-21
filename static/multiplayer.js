@@ -28,6 +28,7 @@
     loading: false,
     pollTimer: null,
     countdownTimers: [],
+    nextRoundTimer: null,
   };
 
   function hasMinimumPlayers(min = 2) {
@@ -333,6 +334,7 @@
     }
     stopRoomPolling();
     clearCountdown();
+    clearNextRoundTimer();
     if (state.room) {
       clearStoredSolution(state.room.id, state.room.round_number);
     }
@@ -653,6 +655,11 @@
       showToast('Digite uma palavra de 5 letras.');
       return;
     }
+    const valid = await wordService.isValidWord(guess, state.room.language || 'pt').catch(() => false);
+    if (!valid) {
+      showToast('Palavra não está no dicionário.');
+      return;
+    }
     try {
       const attemptNumber = getAttemptNumberForPlayer(state.player.id) + 1;
       if (attemptNumber > (state.room.attempt_limit || 6)) {
@@ -742,6 +749,7 @@
         });
         toggleHostControls();
         state.currentSolution = null;
+        scheduleNextRound();
       } else {
         checkRoundCompletion();
       }
@@ -871,6 +879,13 @@
       : 'Rodada finalizada.';
     refs.roundResultWord.textContent = room.answer_reveal || '';
     refs.roundResultOverlay.classList.remove('hidden');
+    clearNextRoundTimer();
+    state.nextRoundTimer = setTimeout(() => {
+      hideRoundResult();
+      if (state.isHost && hasMinimumPlayers()) {
+        handleStartRound();
+      }
+    }, 2000);
   }
 
   function hideRoundResult() {
@@ -917,6 +932,24 @@
       refs.countdownNumber.textContent = '3';
       refs.countdownNumber.classList.remove('animate');
     }
+  }
+
+  function clearNextRoundTimer() {
+    if (state.nextRoundTimer) {
+      clearTimeout(state.nextRoundTimer);
+      state.nextRoundTimer = null;
+    }
+  }
+
+  function scheduleNextRound() {
+    clearNextRoundTimer();
+    if (!state.isHost) return;
+    if (!hasMinimumPlayers()) return;
+    state.nextRoundTimer = setTimeout(() => {
+      if (state.isHost && hasMinimumPlayers()) {
+        handleStartRound();
+      }
+    }, 2000);
   }
 
   function normalizeError(err, fallback) {
@@ -1006,6 +1039,7 @@
       setGuessInputsEnabled(false);
       toggleHostControls();
       state.currentSolution = null;
+      scheduleNextRound();
     } catch (error) {
       console.error('[multiplayer] finishRound', error);
     }
