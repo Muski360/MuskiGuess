@@ -732,7 +732,10 @@
         .eq('id', row.id);
       if (isCorrect) {
         const { error: xpError } = await supabase.rpc('increment_player_score', { p_player_id: row.player_id });
-        if (xpError) throw xpError;
+        if (xpError) {
+          console.error('[multiplayer] Falha ao adicionar pontos', xpError);
+          showToast('Erro ao computar pontos.');
+        }
         const payload = {
           round_active: false,
           status: 'round_complete',

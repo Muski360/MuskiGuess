@@ -243,3 +243,7 @@ begin
     where id = p_player_id;
 end;
 $$;
+
+grant execute on function public.increment_player_score(uuid, int) to authenticated;
+grant execute on function public.increment_player_score(uuid, int) to service_role;
+
