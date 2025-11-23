@@ -1,4 +1,4 @@
-;(function (window) {
+; (function (window) {
   const supabaseClient = window.supabaseClient;
   const wordService = window.wordService;
   const utils = window.muskiUtils;
@@ -216,20 +216,20 @@
     const lang = getSelectedLanguage();
     try {
       state.loading = true;
-    const payload = await createRoomInSupabase({ displayName, rounds, lang });
-    state.room = payload.room;
-    state.player = payload.player;
-    state.isHost = true;
-    state.currentSolution = null;
-    toggleGameView(true);
-    updateLobbyStatus('Sala criada! Aguarde os jogadores.');
-    showToast(`Sala ${payload.room.code} criada.`);
-    subscribeToRoom(payload.room.id);
-    startRoomPolling();
-    await refreshPlayers();
-    refs.roomCodeText.textContent = payload.room.code;
-    refs.displayNameValue.textContent = displayName;
-  } catch (error) {
+      const payload = await createRoomInSupabase({ displayName, rounds, lang });
+      state.room = payload.room;
+      state.player = payload.player;
+      state.isHost = true;
+      state.currentSolution = null;
+      toggleGameView(true);
+      updateLobbyStatus('Sala criada! Aguarde os jogadores.');
+      showToast(`Sala ${payload.room.code} criada.`);
+      subscribeToRoom(payload.room.id);
+      startRoomPolling();
+      await refreshPlayers();
+      refs.roomCodeText.textContent = payload.room.code;
+      refs.displayNameValue.textContent = displayName;
+    } catch (error) {
       console.error('[multiplayer] create room', error);
       showToast(normalizeError(error, fromEntities('N&atilde;o foi poss&iacute;vel criar a sala.')));
     } finally {
@@ -882,13 +882,6 @@
       : 'Rodada finalizada.';
     refs.roundResultWord.textContent = room.answer_reveal || '';
     refs.roundResultOverlay.classList.remove('hidden');
-    clearNextRoundTimer();
-    state.nextRoundTimer = setTimeout(() => {
-      hideRoundResult();
-      if (state.isHost && hasMinimumPlayers()) {
-        handleStartRound();
-      }
-    }, 2000);
   }
 
   function hideRoundResult() {
@@ -947,12 +940,15 @@
   function scheduleNextRound() {
     clearNextRoundTimer();
     if (!state.isHost) return;
-    if (!hasMinimumPlayers()) return;
+    // Wait a bit longer to show the result
     state.nextRoundTimer = setTimeout(() => {
+      hideRoundResult();
       if (state.isHost && hasMinimumPlayers()) {
         handleStartRound();
+      } else if (state.isHost) {
+        showToast('Aguardando mais jogadores...');
       }
-    }, 2000);
+    }, 3000);
   }
 
   function normalizeError(err, fallback) {
